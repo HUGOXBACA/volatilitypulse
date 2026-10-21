@@ -120,7 +120,13 @@ build-py: ## Byte-compile and install the Python packages
 test: test-py test-cpp ## Run every test suite
 
 .PHONY: test-py
-test-py: ## Run pytest (unit + integration + hypothesis property tests)
+stubs: ## Generate the protobuf stubs if they are missing
+	@if [ -d "$(GEN_DIR)/python" ]; then exit 0; fi
+	@command -v buf >/dev/null 2>&1 || { \
+	  printf 'buf is not installed: skipping stub generation\n'; exit 0; }
+	@$(MAKE) proto
+
+test-py: stubs ## Run pytest (unit + integration + hypothesis property tests)
 	PYTHONPATH="$(CURDIR)/$(GEN_DIR)/python:$(CURDIR)/$(PY_LIB)/src:$(CURDIR)/$(PY_SERVICE)/src" \
 	  poetry -C $(PY_ROOT) run pytest \
 	    $(PY_LIB)/tests $(PY_SERVICE)/tests $(PY_ROOT)/tests -v
