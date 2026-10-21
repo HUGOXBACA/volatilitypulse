@@ -7,6 +7,7 @@ Everything the team needs to operate, extend and review VolPulse.
 | [Getting started](development/getting-started.md) | The ten-minute path, verified end to end. | You are new, or you are setting up. |
 | [Usage](development/usage.md) | How to drive each component. | You want to run something. |
 | [Environment reference](development/local-setup.md) | Dependencies, lock files, environment variables. | You are debugging the setup. |
+| [Benchmarks](development/benchmarks.md) | Measured hot-path performance and regression gates. | You are tuning or investigating a slowdown. |
 | [Architecture](architecture/overview.md) | How the brief maps onto the code. | You changed a boundary. |
 | [Data flow](architecture/data-flow.md) | The life of a single quote. | You are debugging the pipeline. |
 | [ADRs](adr/) | Why the system is the way it is. | You are about to change a decision. |

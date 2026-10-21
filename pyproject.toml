@@ -113,6 +113,7 @@ ignore = [
 # The command line entrypoints report to the terminal on purpose.
 "services/analytics-py/src/volpulse_analytics/main.py" = ["T201"]
 "libs/py-core/src/volpulse_core/clients/ivolatility/fetch_iv_data.py" = ["T201"]
+"services/analytics-py/tests/benchmarks/run_benchmarks.py" = ["T201"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["volpulse", "volpulse_analytics"]
@@ -138,9 +139,14 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 # The generated stubs are build artefacts: they are imported, never checked.
-module = ["volpulse.*"]
+module = ["volpulse.*", "volpulse.options.v1.*"]
 follow_imports = "skip"
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Generated protobuf stubs are build artefacts; never type-check them.
+module = ["volpulse.options.v1.*", "volpulse.common.v1.*"]
+ignore_errors = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"

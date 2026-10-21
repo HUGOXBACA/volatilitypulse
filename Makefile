@@ -226,6 +226,16 @@ clean-all: clean infra-reset ## Remove build artefacts, caches and local volumes
 demo: ## Run the offline end-to-end demo (no Docker, no API key)
 	@bash tools/scripts/demo.sh
 
+.PHONY: bench
+bench: ## Run every benchmark (C++ and Python)
+	@cmake --build --preset dev --target volpulse_benchmarks >/dev/null 2>&1 || true
+	@echo "=== C++ benchmarks ==="
+	@ctest --preset dev -R cpp.benchmarks --output-on-failure
+	@echo
+	@echo "=== Python benchmarks ==="
+	@PYTHONPATH="$(CURDIR)/.gen/python:$(CURDIR)/$(PY_LIB)/src:$(CURDIR)/$(PY_SERVICE)/src" \
+	  poetry -C $(PY_ROOT) run python services/analytics-py/tests/benchmarks/run_benchmarks.py
+
 .PHONY: inspect-log
 inspect-log: ## Inspect a binary audit log (LOG=path to override)
 	poetry -C $(PY_ROOT) run python tools/scripts/inspect_log.py \
