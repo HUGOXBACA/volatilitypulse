@@ -1,0 +1,3 @@
+Runtime state lives here: logs, the binary audit log, checkpoints, artefacts
+and local data. Everything in this directory is gitignored and can be
+deleted at any time.

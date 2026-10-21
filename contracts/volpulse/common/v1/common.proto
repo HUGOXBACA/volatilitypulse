@@ -1,0 +1,91 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// VolPulse common types.
+//
+// Shared vocabulary used by every service in the pipeline. Anything that both
+// the C++ ingestion engine and the Python analytics engine must agree on
+// belongs here. Never redefine these in a service-local proto file.
+// ─────────────────────────────────────────────────────────────────────────────
+syntax = "proto3";
+
+package volpulse.common.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/volpulse/gen/go/volpulse/common/v1;commonv1";
+option java_multiple_files = true;
+option java_package = "com.volpulse.common.v1";
+option csharp_namespace = "VolPulse.Common.V1";
+
+// ── Enumerations ───────────────────────────────────────────────────────────
+
+// Right of the option contract.
+enum OptionRight {
+  OPTION_RIGHT_UNSPECIFIED = 0;
+  OPTION_RIGHT_CALL = 1;
+  OPTION_RIGHT_PUT = 2;
+}
+
+// When the holder may exercise.
+enum ExerciseStyle {
+  EXERCISE_STYLE_UNSPECIFIED = 0;
+  EXERCISE_STYLE_EUROPEAN = 1;
+  EXERCISE_STYLE_AMERICAN = 2;
+}
+
+// Lifecycle of a contract identifier.
+enum ContractStatus {
+  CONTRACT_STATUS_UNSPECIFIED = 0;
+  CONTRACT_STATUS_ACTIVE = 1;
+  CONTRACT_STATUS_EXPIRED = 2;
+  CONTRACT_STATUS_SUSPENDED = 3;
+}
+
+// How a quote was produced by the upstream provider.
+enum QuoteSource {
+  QUOTE_SOURCE_UNSPECIFIED = 0;
+  QUOTE_SOURCE_REALTIME_FEED = 1;
+  QUOTE_SOURCE_REST_POLL = 2;
+  QUOTE_SOURCE_HISTORICAL_BACKFILL = 3;
+}
+
+// ── Core entities ──────────────────────────────────────────────────────────
+
+// A tradeable underlying.
+message Underlying {
+  // Exchange-native root symbol, e.g. "AAPL" or "ES".
+  string symbol = 1;
+  // Human readable name.
+  string name = 2;
+  // ISO 4217 currency code of the quoted prices.
+  string currency = 3;
+  // Contract size of the underlying; multiplied into all price levels.
+  double contract_multiplier = 4;
+  // Minimum price increment (tick size) in the quote currency.
+  double tick_size = 5;
+  // Trading venue / MIC code.
+  string venue = 6;
+}
+
+// A single option contract identity.
+// Keyed by (underlying, expiry, strike, right) in the analytics layer.
+message OptionContract {
+  // Opaque provider-native identifier, e.g. IVolatility's option id.
+  string contract_id = 1;
+  Underlying underlying = 2;
+  // Expiry timestamp, always normalised to UTC.
+  google.protobuf.Timestamp expiry = 3;
+  // Strike price in the quote currency.
+  double strike = 4;
+  OptionRight right = 5;
+  ExerciseStyle exercise_style = 6;
+  ContractStatus status = 7;
+  // Days to expiry at quote time; maintained for fast filtering.
+  int32 dte = 8;
+}
+
+// Monetary amount with explicit currency and scale, so no float is ever
+// assumed to be a currency value.
+message Money {
+  double amount = 1;
+  string currency = 2;
+}

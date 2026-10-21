@@ -1,0 +1,150 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# VolPulse CI.
+#
+# Every job is independent and can fail on its own: a broken contract, a
+# broken C++ build and a broken Python test are three different problems and
+# must be reported as three different problems.
+#
+# The pipeline mirrors `make`: the same targets run locally and in CI, so
+# "works on my machine" cannot happen.
+# ─────────────────────────────────────────────────────────────────────────────
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  POETRY_VERSION: "1.8.4"
+
+jobs:
+  # ── Contracts ────────────────────────────────────────────────────────────
+  contracts:
+    name: contracts (protobuf)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ github.token }}
+          version: "1.47.2"
+
+      - name: Lint the contracts
+        run: buf lint contracts
+
+      - name: Check the formatting
+        run: buf format --diff --exit-code contracts
+
+      - name: Detect breaking changes
+        if: github.ref == 'refs/heads/main'
+        run: buf breaking contracts --against '.git#branch=main'
+        continue-on-error: true
+
+  # ── Python ───────────────────────────────────────────────────────────────
+  python:
+    name: python (lint, types, tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        run: pipx install poetry==${{ env.POETRY_VERSION }}
+
+      - name: Install the workspace
+        run: |
+          poetry -C pyproject.toml install --no-interaction
+          poetry -C libs/py-core install --no-interaction
+          poetry -C services/analytics-py install --no-interaction
+
+      - name: Ruff lint
+        run: poetry -C pyproject.toml run ruff check libs/py-core services/analytics-py tests
+
+      - name: Ruff format
+        run: poetry -C pyproject.toml run ruff format --check libs/py-core services/analytics-py tests
+
+      - name: Mypy (strict)
+        run: poetry -C pyproject.toml run mypy --strict libs/py-core/src services/analytics-py/src
+
+      - name: Pytest
+        run: |
+          poetry -C pyproject.toml run pytest \
+            libs/py-core/tests services/analytics-py/tests tests -v \
+            --cov=libs/py-core/src --cov=services/analytics-py/src \
+            --cov-report=xml --cov-report=term
+
+      - name: Upload the coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-coverage
+          path: coverage.xml
+
+  # ── C++ ──────────────────────────────────────────────────────────────────
+  cpp:
+    name: cpp (build, tests, sanitizers)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake g++ libprotobuf-dev protobuf-compiler
+
+      - name: Configure
+        run: cmake --preset dev
+
+      - name: Build
+        run: cmake --build --preset dev
+
+      - name: Test
+        run: ctest --preset dev --output-on-failure
+
+      - name: Build with sanitizers
+        run: |
+          cmake --preset debug
+          cmake --build --preset debug
+          ctest --preset debug --output-on-failure
+
+      - name: Check the formatting
+        run: |
+          find libs/cpp-core services/ingestion-cpp \( -name '*.cpp' -o -name '*.h' \) \
+            -print0 | xargs -0 clang-format --dry-run --Werror
+
+  # ── Infrastructure ───────────────────────────────────────────────────────
+  infrastructure:
+    name: infrastructure (compose, sql, yaml)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate the compose file
+        run: docker compose -f docker-compose.yml config --quiet
+
+      - name: Validate the YAML
+        run: |
+          find config infra -name '*.yml' -o -name '*.yaml' | while read -r file; do
+            python -c "import sys, yaml; yaml.safe_load(open(sys.argv[1]))" "$file"
+          done
+
+      - name: Validate the SQL
+        run: |
+          docker compose -f docker-compose.yml up -d --wait timescaledb postgres
+          docker compose -f docker-compose.yml exec -T timescaledb \
+            psql -U volpulse -d volpulse -c '\dt'
+          docker compose -f docker-compose.yml exec -T postgres \
+            psql -U volpulse -d volpulse_state -c '\dt'
+          docker compose -f docker-compose.yml down -v

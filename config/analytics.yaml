@@ -1,0 +1,58 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Analytics engine configuration.
+#
+# Non-secret configuration only; credentials come from the environment.
+# ─────────────────────────────────────────────────────────────────────────────
+
+service: volpulse-analytics
+language: python
+
+consumer:
+  bootstrap_servers: ${KAFKA_BOOTSTRAP_SERVERS}
+  group_id: ${KAFKA_CONSUMER_GROUP}
+  topics:
+    - ${KAFKA_TOPIC_OPTIONS}
+    - ${KAFKA_TOPIC_QUOTES}
+  # Offsets are committed manually, after the analytics result is durable.
+  auto_offset_reset: earliest
+  enable_auto_commit: false
+  max_poll_interval_ms: 300000
+  session_timeout_ms: 45000
+
+analytics:
+  surfaces:
+    model: svi_raw
+    # A slice with fewer usable points is not fitted: the fit would be
+    # dominated by noise.
+    minimum_points_per_slice: 4
+    # A fit whose residual error exceeds this is reported but not published.
+    maximum_rms_error: 0.01
+    # Lee's moment formula: the density implied by the slice must stay
+    # positive, otherwise the surface allows a butterfly arbitrage.
+    reject_arbitrageable_surfaces: true
+  greeks:
+    model: black_scholes_merton
+    contract_multiplier: 100
+  signals:
+    model: zscore
+    threshold: 2.0
+    # A signal is emitted at most once per contract per hour.
+    cooldown_seconds: 3600
+
+storage:
+  timescale:
+    host: ${TIMESCALE_HOST}
+    port: ${TIMESCALE_PORT}
+    database: ${TIMESCALE_DB}
+  postgres:
+    host: ${POSTGRES_HOST}
+    port: ${POSTGRES_PORT}
+    database: ${POSTGRES_DB}
+
+observability:
+  metrics_port: 9100
+  metrics_path: /metrics
+  log_level: ${LOG_LEVEL}
+  log_format: json
+  influxdb_url: ${INFLUXDB_URL}
+  sensu_url: ${SENSU_URL}

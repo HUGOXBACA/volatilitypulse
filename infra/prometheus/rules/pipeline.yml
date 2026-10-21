@@ -1,0 +1,74 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Alerting rules.
+#
+# Every rule here maps onto a runbook in docs/runbooks/. An alert without a
+# runbook is a page without instructions, so the two are kept in lockstep.
+#
+#   docs/runbooks/ingestion-stalled.md   <- IngestionStalled
+#   docs/runbooks/consumer-lag.md        <- AnalyticsConsumerLag
+#   docs/runbooks/queue-depth-spike.md   <- KafkaQueueDepthSpike
+#   docs/runbooks/surface-degraded.md    <- SurfaceFitDegraded
+# ─────────────────────────────────────────────────────────────────────────────
+groups:
+  - name: volpulse-pipeline
+    interval: 30s
+    rules:
+      - alert: IngestionStalled
+        expr: rate(volpulse_quotes_consumed_total[5m]) == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: volpulse-analytics
+        annotations:
+          summary: No quotes have been consumed for five minutes
+          runbook: docs/runbooks/ingestion-stalled.md
+
+      - alert: AnalyticsConsumerLag
+        expr: volpulse_consumer_lag_seconds > 30
+        for: 2m
+        labels:
+          severity: warning
+          service: volpulse-analytics
+        annotations:
+          summary: The analytics consumer is more than 30 seconds behind
+          runbook: docs/runbooks/consumer-lag.md
+
+      - alert: KafkaQueueDepthSpike
+        expr: volpulse_broker_queue_depth > 50000
+        for: 3m
+        labels:
+          severity: warning
+          service: volpulse-ingestion
+        annotations:
+          summary: The broker queue depth has grown beyond 50k records
+          runbook: docs/runbooks/queue-depth-spike.md
+
+      - alert: SurfaceFitDegraded
+        expr: volpulse_surface_fit_rms_error > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          service: volpulse-analytics
+        annotations:
+          summary: Implied volatility surface fits have degraded
+          runbook: docs/runbooks/surface-degraded.md
+
+      - alert: UpstreamPacingSaturated
+        expr: volpulse_upstream_pacing_delay_seconds > 0.9
+        for: 10m
+        labels:
+          severity: info
+          service: volpulse-ingestion
+        annotations:
+          summary: The upstream client is permanently throttled
+          runbook: docs/runbooks/ingestion-stalled.md
+
+      - alert: ArbitrageViolationsDetected
+        expr: increase(volpulse_surface_arbitrage_violations_total[15m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: volpulse-analytics
+        annotations:
+          summary: Fitted surfaces are showing static arbitrage
+          runbook: docs/runbooks/surface-degraded.md

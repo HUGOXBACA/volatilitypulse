@@ -1,0 +1,97 @@
+{
+  "title": "VolPulse — pipeline overview",
+  "uid": "volpulse-overview",
+  "tags": ["volpulse"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Quotes consumed per second",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(volpulse_quotes_consumed_total[5m])) by (underlying)",
+          "legendFormat": "{{underlying}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Consumer lag",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "max(volpulse_consumer_lag_seconds) by (topic)",
+          "legendFormat": "{{topic}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "End-to-end latency (p95)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(volpulse_end_to_end_latency_seconds_bucket[5m])) by (le, underlying))",
+          "legendFormat": "{{underlying}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Surface fit RMS error",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "volpulse_surface_fit_rms_error",
+          "legendFormat": "{{underlying}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Static arbitrage violations (24h)",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum(increase(volpulse_surface_arbitrage_violations_total[24h]))",
+          "legendFormat": "violations"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Upstream pacing delay",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 16 },
+      "targets": [
+        { "expr": "volpulse_upstream_pacing_delay_seconds", "legendFormat": "delay" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Persistence write duration (p95)",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(volpulse_persistence_write_duration_seconds_bucket[5m])) by (le, store))",
+          "legendFormat": "{{store}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+version: v2
+
+modules:
+  - path: contracts
+
+lint:
+  use:
+    - STANDARD
+  disallow_comment_ignores: true
+  ignore:
+    - contracts/volpulse/common/v1/common.proto
+
+breaking:
+  use:
+    - FILE
+  ignore:
+    - contracts/volpulse/common/v1/common.proto

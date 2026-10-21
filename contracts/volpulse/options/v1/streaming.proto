@@ -1,0 +1,136 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Transport contracts: the Kafka envelopes and the gRPC control-plane service.
+//
+// Two channels exist in VolPulse and they must never be confused:
+//
+//   1. Data plane  — Kafka topics carry normalised quotes at line rate.
+//                    The envelopes below wrap every record.
+//   2. Control plane — gRPC carries administrative and health operations
+//                    (fetch a backfill, query ingest status, trigger a
+//                    surface recomputation). It never carries tick data.
+// ─────────────────────────────────────────────────────────────────────────────
+syntax = "proto3";
+
+package volpulse.options.v1;
+
+import "google/protobuf/timestamp.proto";
+import "volpulse/common/v1/common.proto";
+import "volpulse/options/v1/quote.proto";
+
+option go_package = "github.com/volpulse/gen/go/volpulse/options/v1;optionsv1";
+option java_multiple_files = true;
+option java_package = "com.volpulse.options.v1";
+option csharp_namespace = "VolPulse.Options.V1";
+
+// ── Kafka envelopes ────────────────────────────────────────────────────────
+
+// Envelope for the options.chain.streaming topic.
+// Header metadata travels with the payload so the consumer never has to
+// re-read the broker metadata to route a record.
+message ChainRecord {
+  // Schema version of the payload; bumped on breaking payload changes.
+  uint32 schema_version = 1;
+  // Partition key: the underlying symbol. Guarantees per-symbol ordering.
+  string partition_key = 2;
+  // Producer identity and epoch for exactly-once producer semantics.
+  string producer_id = 3;
+  int32 producer_epoch = 4;
+  google.protobuf.Timestamp produced_at = 5;
+  // Offset in the binary audit log, so any Kafka record can be replayed from
+  // disk without touching the broker.
+  uint64 binary_log_offset = 6;
+  // The payload.
+  oneof payload {
+    OptionChainSnapshot chain = 10;
+    OptionQuote quote = 11;
+    VolatilitySurface surface = 12;
+    PortfolioRisk risk = 13;
+  }
+}
+
+// Envelope for dead-letter topics.
+message DeadLetterRecord {
+  ChainRecord original = 1;
+  string error_class = 2;
+  string error_message = 3;
+  google.protobuf.Timestamp failed_at = 4;
+  uint32 attempt = 5;
+}
+
+// ── gRPC control plane ─────────────────────────────────────────────────────
+
+message FetchBackfillRequest {
+  string underlying_symbol = 1;
+  // Inclusive start of the historical window.
+  google.protobuf.Timestamp from = 2;
+  // Exclusive end of the historical window.
+  google.protobuf.Timestamp to = 3;
+  // Whether to replay the window through the analytics engine.
+  bool run_analytics = 4;
+}
+
+message FetchBackfillResponse {
+  // Correlation id used to poll the operation status.
+  string job_id = 1;
+  string state = 2;
+  google.protobuf.Timestamp accepted_at = 3;
+}
+
+message IngestStatusRequest {
+  // Empty: status of the whole ingestion engine.
+}
+
+message IngestStatusResponse {
+  bool healthy = 1;
+  // Symbols currently being polled.
+  repeated string active_symbols = 2;
+  // Milliseconds since the last successful upstream read.
+  int64 last_poll_age_ms = 3;
+  // Records published since process start.
+  uint64 records_published = 4;
+  // Records dropped since process start.
+  uint64 records_dropped = 5;
+  // Current upstream rate-limit pacing delay in milliseconds.
+  int32 current_pacing_delay_ms = 6;
+  // Position of the durable checkpoint.
+  string checkpoint_position = 7;
+}
+
+message RecomputeSurfaceRequest {
+  string underlying_symbol = 1;
+  // As-of timestamp for the surface; empty means "now".
+  google.protobuf.Timestamp as_of = 2;
+}
+
+message RecomputeSurfaceResponse {
+  bool accepted = 1;
+  string job_id = 2;
+}
+
+// Control plane for the ingestion engine.
+service IngestionControl {
+  // Request an asynchronous historical backfill.
+  rpc FetchBackfill(FetchBackfillRequest) returns (FetchBackfillResponse);
+  // Health and progress of the ingestion engine.
+  rpc GetIngestStatus(IngestStatusRequest) returns (IngestStatusResponse);
+  // Trigger a surface recomputation in the analytics engine.
+  rpc RecomputeSurface(RecomputeSurfaceRequest) returns (RecomputeSurfaceResponse);
+}
+
+// ── Upstream provider schema (IVolatility) ─────────────────────────────────
+//
+// The upstream REST payload is NOT modelled field by field: the provider
+// changes without notice. Instead the ingestion engine records the raw
+// response next to the normalised quote so the audit log can be replayed
+// against a newer parser without going back to the upstream API.
+message RawProviderPayload {
+  string provider = 1;
+  string endpoint = 2;
+  google.protobuf.Timestamp received_at = 3;
+  // Unparsed provider body, retained verbatim.
+  bytes body = 4;
+  // HTTP status of the upstream response.
+  int32 http_status = 5;
+  // Correlation id echoed back into the normalised record.
+  string request_id = 6;
+}

@@ -1,0 +1,201 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# VolPulse local infrastructure.
+#
+# This stack is the development and CI environment: it is NOT a production
+# deployment. Production runs the same components under an orchestrator with
+# persistent volumes, authentication and network segmentation.
+#
+#   make infra-up      start everything
+#   make infra-logs    tail the logs
+#   make infra-down    stop everything
+#   make infra-reset   stop everything and destroy the volumes
+#
+# Artifactory is behind the `artifactory` profile because it is a heavy
+# service and only needed when mirroring Python packages:
+#   docker compose --profile artifactory up -d
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: volpulse
+
+x-restart: &restart
+  restart: unless-stopped
+
+services:
+  # ── Message broker ───────────────────────────────────────────────────────
+  kafka:
+    image: bitnami/kafka:3.7
+    <<: *restart
+    container_name: volpulse-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      # KRaft mode: no ZooKeeper.
+      KAFKA_CFG_NODE_ID: "1"
+      KAFKA_CFG_PROCESS_ROLES: "broker,controller"
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_CFG_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094"
+      KAFKA_CFG_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094"
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT"
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_CFG_NUM_PARTITIONS: "12"
+      KAFKA_CFG_DEFAULT_REPLICATION_FACTOR: "1"
+      KAFKA_CFG_LOG_RETENTION_HOURS: "168"
+      KAFKA_CFG_MESSAGE_MAX_BYTES: "10485760"
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+    volumes:
+      - kafka-data:/bitnami/kafka
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+
+  # ── Time-series store ────────────────────────────────────────────────────
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    <<: *restart
+    container_name: volpulse-timescaledb
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${TIMESCALE_DB:-volpulse}
+      POSTGRES_USER: ${TIMESCALE_USER:-volpulse}
+      POSTGRES_PASSWORD: ${TIMESCALE_PASSWORD:-volpulse}
+    volumes:
+      - timescale-data:/var/lib/postgresql/data
+      - ./infra/timescaledb/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TIMESCALE_USER:-volpulse} -d ${TIMESCALE_DB:-volpulse}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── Relational store ──────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    <<: *restart
+    container_name: volpulse-postgres
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-volpulse_state}
+      POSTGRES_USER: ${POSTGRES_USER:-volpulse}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-volpulse}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-volpulse} -d ${POSTGRES_DB:-volpulse_state}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── Metrics ───────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    <<: *restart
+    container_name: volpulse-prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ── Dashboards ────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.2.0
+    <<: *restart
+    container_name: volpulse-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_INSTALL_PLUGINS: ""
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+
+  # ── Time-series metrics ──────────────────────────────────────────────────
+  influxdb:
+    image: influxdb:2.7-alpine
+    <<: *restart
+    container_name: volpulse-influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUXDB_USER:-volpulse}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUXDB_PASSWORD:-volpulse}
+      DOCKER_INFLUXDB_INIT_ORG: ${INFLUXDB_ORG:-volpulse}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUXDB_BUCKET:-metrics}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUXDB_TOKEN:-volpulse-dev-token}
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8086/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ── Alerting ──────────────────────────────────────────────────────────────
+  sensu:
+    image: sensu/sensu-go:6.10.0
+    <<: *restart
+    container_name: volpulse-sensu
+    ports:
+      - "8080:8080"
+    environment:
+      SENSU_BACKEND_URL: http://sensu-backend:8080
+      SENSU_AGENT_NAME: volpulse-local
+      SENSU_API_URL: http://localhost:8080
+    volumes:
+      - ./infra/sensu/checks:/etc/sensu/checks:ro
+      - sensu-data:/var/lib/sensu/sensu-backend
+
+  # ── Dependency proxy (opt-in) ────────────────────────────────────────────
+  artifactory:
+    image: artifactory/jfrog-artifactory:7.77.17
+    profiles: ["artifactory"]
+    container_name: volpulse-artifactory
+    ports:
+      - "8081:8081"
+      - "8046:8046"
+    environment:
+      JF_INSTALL_DEFAULT_PACKAGES: "false"
+      artifactory.license.admin.password: ${ARTIFACTORY_ADMIN_PASSWORD:-volpulse}
+    volumes:
+      - artifactory-data:/var/opt/jfrog/artifactory
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/artifactory/api/system/ping || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+
+volumes:
+  kafka-data:
+  timescale-data:
+  postgres-data:
+  prometheus-data:
+  grafana-data:
+  influxdb-data:
+  sensu-data:
+  artifactory-data:

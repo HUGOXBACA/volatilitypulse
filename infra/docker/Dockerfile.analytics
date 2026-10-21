@@ -1,0 +1,74 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# VolPulse Python analytics engine.
+#
+# The image is built from the poetry lock file, so two builds of the same
+# commit produce the same dependency set. The runtime stage keeps the
+# virtual environment and the application, and nothing else.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Stage 1: dependencies ─────────────────────────────────────────────────
+FROM python:3.12-slim-bookworm AS deps
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    POETRY_VERSION=1.8.4 \
+    POETRY_VIRTUALENVS_CREATE=false
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential \
+      git \
+      curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install "poetry==${POETRY_VERSION}"
+
+WORKDIR /src
+
+# The dependency set is resolved from the lock files alone, so this layer is
+# invalidated only when a lock file changes.
+COPY pyproject.toml poetry.lock ./
+COPY libs/py-core/pyproject.toml libs/py-core/
+COPY services/analytics-py/pyproject.toml services/analytics-py/
+
+RUN poetry install --no-interaction --no-root \
+ && poetry -C libs/py-core install --no-interaction --no-root \
+ && poetry -C services/analytics-py install --no-interaction --no-root
+
+# ── Stage 2: application ──────────────────────────────────────────────────
+FROM deps AS build
+
+WORKDIR /src
+COPY . .
+
+RUN poetry -C libs/py-core build \
+ && poetry -C services/analytics-py build
+
+# ── Stage 3: runtime ──────────────────────────────────────────────────────
+FROM python:3.12-slim-bookworm AS runtime
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/opt/venv/bin:${PATH}" \
+    LOG_LEVEL=INFO
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libgomp1 \
+      ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --shell /usr/sbin/nologin volpulse
+
+COPY --from=build /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=build /src/libs/py-core/src /app/libs/py-core/src
+COPY --from=build /src/services/analytics-py/src /app/services/analytics-py/src
+COPY --from=build /src/.gen/python /app/.gen/python
+COPY --from=build /src/config /app/config
+
+ENV PYTHONPATH="/app/.gen/python:/app/libs/py-core/src:/app/services/analytics-py/src"
+
+USER volpulse
+WORKDIR /app
+
+EXPOSE 9100
+
+ENTRYPOINT ["python", "-m", "volpulse_analytics"]
+CMD ["--metrics-port", "9100"]

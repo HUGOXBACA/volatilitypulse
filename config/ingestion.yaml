@@ -1,0 +1,66 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Ingestion engine configuration.
+#
+# This file holds *non-secret* configuration only. Credentials live in the
+# environment (see .env.example) and are read through the configuration
+# layer, never from this file.
+#
+# The C++ engine reads a flat `key = value` file (see
+# services/ingestion-cpp/include/volpulse/ingestion/config.h), so the
+# canonical machine readable copy of this configuration lives in
+# config/ingestion.conf. This YAML file is the human facing description and
+# the source of truth for the values.
+# ─────────────────────────────────────────────────────────────────────────────
+
+service: volpulse-ingestion
+language: cpp
+protocol: protobuf
+
+upstream:
+  provider: ivolatility
+  base_url: ${IVOL_BASE_URL}
+  # The subscription is metered: never exceed one request per second.
+  rate_limit_rps: 1.0
+  max_concurrency: 4
+  timeout_seconds: 30
+  # Upstream parameters named `from` are rewritten to `from_` before they
+  # are sent, because `from` is a Python keyword.
+  reserved_parameters: ["from"]
+
+symbols:
+  - AAPL
+  - MSFT
+  - SPY
+  - QQQ
+
+ingestion:
+  # Symbols polled per cycle. The whole list is cycled; each symbol gets one
+  # request per cycle, so the cycle duration sets the effective refresh rate.
+  symbols_per_cycle: 1
+  max_batch: 512
+  poll_interval_seconds: 1.0
+  # Historical windows wider than one page are fetched asynchronously: the
+  # job details URL is polled until the download URL is published.
+  pagination:
+    page_size: 500
+    poll_interval_seconds: 2.0
+    timeout_seconds: 300.0
+
+binary_log:
+  path: var/binary-logs/options.vlog
+  # 64 MiB mapping window; the file is trimmed to its logical size on close.
+  map_capacity_bytes: 67108864
+  sync_on_flush: true
+
+checkpoint:
+  directory: var/checkpoints
+  # A checkpoint records the last broker offset that was published, so a
+  # restart resumes instead of replaying from the beginning.
+  interval_seconds: 30
+
+observability:
+  metrics_port: 9101
+  metrics_path: /metrics
+  log_level: ${LOG_LEVEL}
+  log_format: json
+  pushgateway_url: ${PUSHGATEWAY_URL}

@@ -1,0 +1,43 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Structured logging configuration.
+#
+# One log line per event, one JSON object per line, so that the logs can be
+# queried by field without a parser. The field names are part of the
+# operational contract: the runbooks and dashboards rely on them.
+# ─────────────────────────────────────────────────────────────────────────────
+
+level: ${LOG_LEVEL}
+format: ${LOG_FORMAT}
+
+fields:
+  # Always present.
+  - timestamp
+  - level
+  - service
+  - logger
+  - message
+  # Present on pipeline events.
+  - underlying_symbol
+  - contract_id
+  - topic
+  - partition
+  - offset
+  - sequence
+  - latency_seconds
+  - error_class
+  - error_message
+
+redaction:
+  # Never log these, even if they end up in an exception message.
+  - api_key
+  - authorization
+  - password
+  - token
+  - secret
+
+sampling:
+  # Successful per-quote events are sampled; errors are never sampled.
+  routine_events:
+    rate: 0.01
+  error_events:
+    rate: 1.0

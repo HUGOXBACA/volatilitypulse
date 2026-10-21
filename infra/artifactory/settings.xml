@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Maven settings for resolving Python and internal artefacts through the
+  local Artifactory instance.
+
+  Copy to ~/.m2/settings.xml when building Java-based tooling against the
+  internal repositories. The repository itself is managed by the
+  docker-compose profile; see ../README.md.
+-->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
+                              https://maven.apache.org/xsd/settings-1.0.0.xsd">
+
+  <servers>
+    <server>
+      <id>artifactory</id>
+      <username>${env.ARTIFACTORY_READER_USER}</username>
+      <password>${env.ARTIFACTORY_READER_PASSWORD}</password>
+    </server>
+  </servers>
+
+  <mirrors>
+    <mirror>
+      <id>artifactory</id>
+      <name>VolPulse Artifactory</name>
+      <url>http://localhost:8081/artifactory/api/pypi/pypi</url>
+      <mirrorOf>*</mirrorOf>
+    </mirror>
+  </mirrors>
+
+  <profiles>
+    <profile>
+      <id>volpulse</id>
+      <repositories>
+        <repository>
+          <id>artifactory-releases</id>
+          <url>http://localhost:8081/artifactory/api/pypi/pypi</url>
+          <releases><enabled>true</enabled></releases>
+          <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+      </repositories>
+    </profile>
+  </profiles>
+
+  <activeProfiles>
+    <activeProfile>volpulse</activeProfile>
+  </activeProfiles>
+</settings>

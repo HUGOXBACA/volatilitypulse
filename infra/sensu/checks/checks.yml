@@ -1,0 +1,50 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Sensu check definitions.
+#
+# Sensu is the alerting pipeline: Prometheus evaluates the rules, Sensu
+# dispatches the notification to the on-call rotation. The checks below are
+# the service-level checks that Prometheus rules alone cannot express.
+# ─────────────────────────────────────────────────────────────────────────────
+checks:
+  - name: ingestion-broker-connected
+    command: check-broker.sh
+    interval: 60
+    subscriptions:
+      - volpulse
+    labels:
+      pipeline: volpulse
+      severity: critical
+
+  - name: analytics-consumer-alive
+    command: check-http.sh
+    interval: 30
+    subscriptions:
+      - volpulse
+    labels:
+      pipeline: volpulse
+      severity: critical
+    arguments:
+      - http://analytics:9100/metrics
+
+  - name: timescaledb-reachable
+    command: check-http.sh
+    interval: 60
+    subscriptions:
+      - volpulse
+    labels:
+      pipeline: volpulse
+      severity: warning
+    arguments:
+      - http://timescaledb:5432/
+
+  - name: disk-space-var
+    command: check-disk.sh
+    interval: 300
+    subscriptions:
+      - volpulse
+    labels:
+      pipeline: volpulse
+      severity: warning
+    arguments:
+      - /var/lib/volpulse
+      - 85

@@ -1,0 +1,142 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Options market data contracts.
+//
+// The normalised quote is the atom of the VolPulse pipeline: the C++ ingestion
+// engine produces these, the Python analytics engine consumes them. Field
+// numbers are frozen — never reuse a retired field number.
+//
+// Zero-copy rule: this message is serialised directly into the binary audit
+// log and onto the wire. Keep it flat, keep it small, and never add a field
+// that can only be computed at the consumer (derive it instead).
+// ─────────────────────────────────────────────────────────────────────────────
+syntax = "proto3";
+
+package volpulse.options.v1;
+
+import "google/protobuf/timestamp.proto";
+import "volpulse/common/v1/common.proto";
+
+option go_package = "github.com/volpulse/gen/go/volpulse/options/v1;optionsv1";
+option java_multiple_files = true;
+option java_package = "com.volpulse.options.v1";
+option csharp_namespace = "VolPulse.Options.V1";
+
+// ── Risk ───────────────────────────────────────────────────────────────────
+
+// First order risk of a position or contract, per contract unit.
+message Greeks {
+  double delta = 1;
+  double gamma = 2;
+  double theta = 3;
+  double vega = 4;
+  double rho = 5;
+  // Vanna / volga: second order sensitivity to volatility.
+  double vanna = 6;
+  double volga = 7;
+  // Probability of finishing in the money under the risk-neutral measure.
+  double probability_itm = 8;
+}
+
+// ── Quote ──────────────────────────────────────────────────────────────────
+
+// A normalised, provider-agnostic quote for one option contract.
+message OptionQuote {
+  // Provider-native contract identifier.
+  string contract_id = 1;
+  // Underlying symbol; denormalised to keep the hot path allocation free.
+  string underlying_symbol = 2;
+  // Expiry as an epoch day count since 1970-01-01 (UTC). Cheaper than a
+  // Timestamp on the hot path and unambiguous for date-only expiries.
+  int32 expiry_epoch_day = 3;
+  // Strike in the quote currency.
+  double strike = 4;
+  volpulse.common.v1.OptionRight right = 5;
+  // ── Prices ──────────────────────────────────────────────────────────────
+  double bid = 6;
+  double ask = 7;
+  double last = 8;
+  double close = 9;
+  // Size at the best bid / ask. -1 means "not provided by the source".
+  double bid_size = 10;
+  double ask_size = 11;
+  // ── Volatility ──────────────────────────────────────────────────────────
+  // Implied volatility implied by the source, as a decimal (0.25 == 25%).
+  double implied_volatility = 12;
+  // Implied volatility solved locally by the analytics engine.
+  double model_implied_volatility = 13;
+  // Realised volatility over the source's lookback window.
+  double historical_volatility = 14;
+  // ── Metadata ────────────────────────────────────────────────────────────
+  // Exchange event time.
+  google.protobuf.Timestamp event_time = 15;
+  // Wall-clock time the ingestion engine received the payload.
+  google.protobuf.Timestamp ingest_time = 16;
+  // Monotonically increasing sequence number per partition, used for
+  // de-duplication and gap detection by the consumer.
+  uint64 sequence = 17;
+  volpulse.common.v1.QuoteSource source = 18;
+  // True when the provider flagged the quote as indicative or stale.
+  bool indicative = 19;
+}
+
+// A full chain snapshot for one underlying at one point in time.
+message OptionChainSnapshot {
+  string underlying_symbol = 1;
+  google.protobuf.Timestamp event_time = 2;
+  // Ordering of the quotes within the chain. Monotonic per underlying.
+  uint64 sequence = 3;
+  repeated OptionQuote quotes = 4;
+  // Number of quotes the provider reported, including any dropped by
+  // ingestion. Allows the consumer to detect truncation.
+  uint32 reported_quote_count = 5;
+}
+
+// ── Implied volatility surface ────────────────────────────────────────────
+
+// One point of an implied volatility surface.
+message SurfacePoint {
+  double expiry_epoch_day = 1;
+  double strike = 2;
+  double implied_volatility = 3;
+  // Standard error of the fitted volatility.
+  double fitted_error = 4;
+}
+
+// An implied volatility surface across expiries and strikes.
+message VolatilitySurface {
+  string underlying_symbol = 1;
+  google.protobuf.Timestamp as_of = 2;
+  repeated SurfacePoint points = 3;
+  // Method used to fit the surface (e.g. "SVI", "SABR", "CubicSpline").
+  string fit_method = 4;
+  // Residual root-mean-square error of the fit.
+  double rms_error = 5;
+  // Whether the surface is arbitrage-free across strikes.
+  bool arbitrage_free = 6;
+}
+
+// ── Portfolio state ────────────────────────────────────────────────────────
+
+// Net position in a single option contract.
+message Position {
+  string contract_id = 1;
+  string underlying_symbol = 2;
+  double strike = 3;
+  volpulse.common.v1.OptionRight right = 4;
+  // Signed quantity: negative is short.
+  double quantity = 5;
+  // Average entry price per contract.
+  double avg_entry_price = 6;
+  google.protobuf.Timestamp opened_at = 7;
+}
+
+// Aggregate risk of a portfolio at a point in time.
+message PortfolioRisk {
+  string portfolio_id = 1;
+  google.protobuf.Timestamp as_of = 2;
+  Greeks aggregate = 3;
+  // Risk broken down per underlying symbol.
+  map<string, Greeks> by_underlying = 4;
+  double gross_notional = 5;
+  double net_notional = 6;
+}

@@ -1,0 +1,80 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# VolPulse C++ ingestion engine.
+#
+# Multi-stage build: the dependency layer is built once and cached, the
+# source layer is rebuilt on every change. The runtime image carries only
+# the binary and the shared libraries it needs.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Stage 1: dependencies ─────────────────────────────────────────────────
+FROM debian:bookworm-slim AS deps
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential \
+      cmake \
+      ninja-build \
+      git \
+      pkg-config \
+      libprotobuf-dev \
+      protobuf-compiler \
+      libgrpc++-dev \
+      protobuf-compiler-grpc \
+      librdkafka-dev \
+      libcurl4-openssl-dev \
+      libssl-dev \
+      nlohmann-json3-dev \
+      libspdlog-dev \
+      libcrc32c-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+COPY vcpkg.json .
+RUN git clone https://github.com/microsoft/vcpkg.git /vcpkg \
+    && /vcpkg/bootstrap-vcpkg.sh -disableMetrics \
+    && VCPKG_ROOT=/vcpkg /vcpkg/vcpkg install \
+         --triplet=x64-linux \
+         --x-manifest-root=/src \
+         --x-install-root=/vcpkg_installed
+
+# ── Stage 2: build ────────────────────────────────────────────────────────
+FROM deps AS build
+
+RUN apt-get update && apt-get install -y --no-install-recommends python3 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+COPY . .
+
+RUN cmake -S . -B build -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake \
+      -DVOLPULSE_BUILD_TESTS=OFF \
+ && cmake --build build --target volpulse-ingestion -j "$(nproc)"
+
+# ── Stage 3: runtime ──────────────────────────────────────────────────────
+FROM debian:bookworm-slim AS runtime
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libprotobuf32 \
+      libgrpc++1v57 \
+      libcurl4 \
+      libssl3 \
+      ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --shell /usr/sbin/nologin volpulse
+
+COPY --from=build /src/build/bin/volpulse-ingestion /usr/local/bin/volpulse-ingestion
+COPY --from=build /src/config/ingestion.conf /etc/volpulse/ingestion.conf
+
+RUN mkdir -p /var/lib/volpulse/binary-logs && chown -R volpulse:volpulse /var/lib/volpulse
+
+USER volpulse
+WORKDIR /var/lib/volpulse
+
+ENV BINARY_LOG_DIR=/var/lib/volpulse/binary-logs \
+    LOG_LEVEL=INFO
+
+EXPOSE 9101
+
+ENTRYPOINT ["/usr/local/bin/volpulse-ingestion"]
+CMD ["--config", "/etc/volpulse/ingestion.conf"]

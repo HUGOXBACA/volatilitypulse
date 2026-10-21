@@ -1,0 +1,83 @@
+# ── Secrets ────────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+!infra/**/*.example
+
+# ── Python ─────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.python-version
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.hypothesis/
+.numba_cache/
+.ipynb_checkpoints/
+
+# ── C++ / CMake ────────────────────────────────────────────────────────────
+build/
+cmake-build-*/
+out/
+CMakeUserPresets.json
+compile_commands.json
+.cache/
+*.o
+*.a
+*.so
+*.dylib
+*.dSYM/
+
+# ── Protobuf / Buf ────────────────────────────────────────────────────────
+buf.lock
+*.pb.cc
+*.pb.h
+*_pb2.py
+*_pb2.pyi
+*_pb2_grpc.py
+.gen/
+
+# ── Runtime state (never commit) ──────────────────────────────────────────
+var/*
+!var/.gitkeep
+logs/
+*.log
+
+# ── Data artifacts ────────────────────────────────────────────────────────
+*.parquet
+*.npz
+*.npy
+*.feather
+*.arrow
+*.csv.gz
+
+# ── Local infra ───────────────────────────────────────────────────────────
+infra/kafka/data/
+infra/timescaledb/data/
+infra/postgres/data/
+infra/grafana/data/
+infra/prometheus/data/
+infra/influxdb/data/
+infra/sensu/data/
+infra/artifactory/data/
+
+# ── Editors / OS ──────────────────────────────────────────────────────────
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*~
