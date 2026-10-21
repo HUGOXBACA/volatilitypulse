@@ -114,6 +114,13 @@ ignore = [
 "services/analytics-py/src/volpulse_analytics/main.py" = ["T201"]
 "libs/py-core/src/volpulse_core/clients/ivolatility/fetch_iv_data.py" = ["T201"]
 "services/analytics-py/tests/benchmarks/run_benchmarks.py" = ["T201"]
+# Latency analysis uses deliberate magic values and broad exception handling.
+"libs/py-core/src/volpulse_core/latency/analysis.py" = [
+    "PLR2004",
+    "PLR0915",
+    "S112",
+]
+"libs/py-core/src/volpulse_core/latency/report.py" = ["PLR2004", "PLR0915"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["volpulse", "volpulse_analytics"]

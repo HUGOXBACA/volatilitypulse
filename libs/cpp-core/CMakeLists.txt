@@ -25,4 +25,8 @@ if(VOLPULSE_BUILD_TESTS)
   add_executable(volpulse_binarylog_test tests/binarylog_test.cpp)
   target_link_libraries(volpulse_binarylog_test PRIVATE volpulse_cpp_core)
   add_test(NAME cpp.binarylog COMMAND volpulse_binarylog_test)
+
+  add_executable(volpulse_latency_test tests/latency_test.cpp)
+  target_link_libraries(volpulse_latency_test PRIVATE volpulse_cpp_core)
+  add_test(NAME cpp.latency COMMAND volpulse_latency_test)
 endif()
