@@ -10,18 +10,23 @@ from __future__ import annotations
 import os
 import tempfile
 from pathlib import Path
+from typing import Any, Literal
 
 import numpy as np
 import polars as pl
+from numpy.typing import NDArray
 
-__all__ = ["read_npz", "read_parquet", "write_npz", "write_parquet"]
+__all__ = ["Compression", "read_npz", "read_parquet", "write_npz", "write_parquet"]
+
+#: The Parquet codecs the writer supports.
+Compression = Literal["lz4", "uncompressed", "snappy", "gzip", "brotli", "zstd"]
 
 
 def write_parquet(
     frame: pl.DataFrame,
     path: Path,
     *,
-    compression: str = "zstd",
+    compression: Compression = "zstd",
 ) -> Path:
     """Write a Polars frame to Parquet, atomically.
 
@@ -40,7 +45,7 @@ def write_parquet(
     os.close(handle)
     try:
         frame.write_parquet(temporary, compression=compression)
-        os.replace(temporary, path)
+        Path(temporary).replace(path)
     except BaseException:
         Path(temporary).unlink(missing_ok=True)
         raise
@@ -52,7 +57,7 @@ def read_parquet(path: Path) -> pl.DataFrame:
     return pl.read_parquet(Path(path))
 
 
-def write_npz(path: Path, **arrays: np.ndarray) -> Path:
+def write_npz(path: Path, **arrays: NDArray[Any]) -> Path:
     """Write compressed NumPy arrays to an NPZ archive, atomically.
 
     Args:
@@ -68,17 +73,17 @@ def write_npz(path: Path, **arrays: np.ndarray) -> Path:
     handle, temporary = tempfile.mkstemp(dir=path.parent, suffix=".npz.tmp")
     os.close(handle)
     try:
-        np.savez_compressed(temporary, **arrays)
+        np.savez_compressed(temporary, **arrays)  # type: ignore[arg-type]
         # numpy appends .npz when the target does not already end with it.
         produced = Path(temporary if temporary.endswith(".npz") else f"{temporary}.npz")
-        os.replace(produced, path)
+        Path(produced).replace(path)
     except BaseException:
         Path(temporary).unlink(missing_ok=True)
         raise
     return path
 
 
-def read_npz(path: Path) -> dict[str, np.ndarray]:
+def read_npz(path: Path) -> dict[str, NDArray[Any]]:
     """Read an NPZ archive into a dictionary of arrays."""
     with np.load(Path(path)) as archive:
         return {key: archive[key] for key in archive.files}

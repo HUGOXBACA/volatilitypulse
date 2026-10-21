@@ -1,154 +1,218 @@
-# Local setup
+# Environment reference
 
-Everything below runs on a clean macOS (or Linux) machine with Python 3.12+
-and a C++20 compiler.
+The details of the development environment: how the dependencies are
+managed, what the environment variables mean, and how to fix a broken
+setup. For the ten-minute path, read
+[getting-started.md](getting-started.md) first.
 
-## Prerequisites
+---
 
-| Tool | Version | Used for |
-| --- | --- | --- |
-| Python | 3.12 – 3.14 | The analytics engine and the shared library. |
-| Poetry | 2.x | Dependency management. |
-| CMake | 3.24+ | The C++ workspace. |
-| Ninja | any | The CMake generator. |
-| A C++20 compiler | Clang 16+ / GCC 12+ | The ingestion engine. |
-| vcpkg | latest | The C++ dependencies. |
-| buf | 1.4x+ | Protobuf linting and code generation. |
-| Docker | any | The local infrastructure. |
+## The toolchain
 
-On macOS:
+| Tool | Version | Managed by | Used for |
+| --- | --- | --- | --- |
+| Python | 3.12 – 3.14 | Homebrew or python.org | The analytics engine, the shared library, the tooling. |
+| Poetry | 2.x | `pipx` or Homebrew | Every Python dependency. |
+| CMake | 3.24+ | Homebrew | The C++ workspace. |
+| Ninja | any | Homebrew | The CMake generator. |
+| A C++20 compiler | Clang 16+ / GCC 12+ | Xcode CLT | The ingestion engine. |
+| vcpkg | latest | `brew install vcpkg` | The C++ dependencies. |
+| buf | 1.4x+ | Homebrew | Contract linting and code generation. |
+| clang-format | any | Homebrew | The C++ format gate. |
+| Docker | any | Docker Desktop | The local infrastructure only. |
 
-```bash
-brew install python@3.12 poetry cmake ninja vcpkg buf
+Nothing in the repository requires a specific Python patch release. The
+constraint `>=3.12,<3.15` exists because the numerical stack (NumPy, SciPy,
+pandas) publishes wheels for those versions.
+
+---
+
+## How the Python dependencies are managed
+
+There are **three** Poetry projects, and each has its own lock file:
+
+| Project | Package | Lock file | Contains |
+| --- | --- | --- | --- |
+| `.` (the root) | none — `package-mode = false` | `poetry.lock` | The workspace: every runtime dependency plus the tooling. |
+| `libs/py-core` | `volpulse-core` | `libs/py-core/poetry.lock` | The shared library. |
+| `services/analytics-py` | `volpulse-analytics` | `services/analytics-py/poetry.lock` | The analytics service. |
+
+The root project ships no importable package: it exists so that one
+`poetry install` gives a developer everything needed to run the tests and
+the tools. The two member packages are what would be published.
+
+The service depends on the library by path, not by version:
+
+```toml
+[tool.poetry.dependencies]
+volpulse-core = { path = "../../libs/py-core", develop = true }
 ```
 
-## Bootstrap
+The two halves of the Python stack change together, so they are versioned
+together.
+
+### The command that keeps working
 
 ```bash
-git clone <repository> && cd volatilitypulse
-bash tools/scripts/bootstrap.sh
+poetry -C <directory> <command>
 ```
 
-The bootstrap is idempotent. It:
+`-C` takes a **directory**. `poetry -C pyproject.toml` is wrong and fails
+with *"Specified path 'pyproject.toml' is not a valid directory"*.
 
-1. checks the toolchain and prints the versions,
-2. creates `.env` from `.env.example` if it does not exist,
-3. installs the Python workspace and the two Python packages,
-4. installs the C++ dependencies into `build/vcpkg_installed` from
-   `vcpkg.json`,
-5. generates the protobuf stubs into `.gen/`,
-6. creates the runtime directories under `var/`.
+### The lock files
 
-## Configuration
+All three lock files are committed. After changing a dependency:
 
-`.env` holds the environment. It is gitignored; `.env.example` is the
-contract and is committed.
+```bash
+poetry -C . lock && poetry -C . install
+```
+
+Commit the lock file with the change. A dependency bump is a change to the
+product, and it is reviewed like one — `dependabot.yml` proposes them on a
+schedule.
+
+### The acceleration extra
+
+`numba` and `jax` are declared but not installed by default: they pull in
+large binary wheels and nothing imports them yet. They are the first
+acceleration step described in
+[ADR 0004](../adr/0004-accelerator-deferral.md).
+
+```bash
+poetry -C . install --extras accelerate
+```
+
+---
+
+## How the C++ dependencies are managed
+
+`vcpkg.json` is the manifest. It lists the packages and pins the versions
+through the `builtin-baseline` commit:
+
+```json
+{
+  "name": "volpulse-cpp",
+  "builtin-baseline": "857036234d15fbed8f30fed66e898d7725446c0c",
+  "dependencies": ["protobuf", "grpc", "librdkafka", "curl", "openssl",
+                   "nlohmann-json", "spdlog"]
+}
+```
+
+The baseline is what makes the build reproducible. Do not add
+`"version>="` constraints without checking that the minimum version exists
+in the baseline's version database — vcpkg rejects the manifest otherwise.
+
+```bash
+bash tools/scripts/bootstrap_cpp.sh     # install into build/vcpkg_installed
+```
+
+The install directory is inside the repository and is gitignored. The
+`Makefile` passes the toolchain file to CMake automatically when
+`.vcpkg/` exists, so `make build-cpp` just works.
+
+---
+
+## The environment variables
+
+`.env` is gitignored. `.env.example` is the committed contract and lists
+every variable with its default. Copy it and fill it in:
 
 ```bash
 cp .env.example .env
-$EDITOR .env          # at minimum: IVOL_API_KEY
 ```
 
-The variable that matters most is `IVOL_API_KEY`. The upstream subscription
-is metered at roughly one request per second — `IVOL_RATE_LIMIT_RPS`
-defaults to `1.0` and must not be raised.
+The variables are read **once**, at the process boundary, by
+`volpulse_core.config.load_settings()`, and then passed down explicitly. No
+module reads `os.environ` outside that function.
 
-## The local infrastructure
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `IVOL_API_KEY` | **yes** | — | The upstream API key. The services refuse to start without it. |
+| `IVOL_BASE_URL` | no | `https://api.ivolatility.com` | The upstream. |
+| `IVOL_RATE_LIMIT_RPS` | no | `1.0` | The upstream quota. **Do not raise it.** |
+| `IVOL_MAX_CONCURRENCY` | no | `4` | Simultaneous upstream calls. |
+| `KAFKA_BOOTSTRAP_SERVERS` | no | `localhost:9092` | The broker. |
+| `KAFKA_TOPIC_OPTIONS` | no | `options.chain.streaming` | The quote topic. |
+| `KAFKA_CONSUMER_GROUP` | no | `volpulse-analytics` | The consumer group. |
+| `TIMESCALE_*` | no | localhost | The time-series store. |
+| `POSTGRES_*` | no | localhost | The relational store. |
+| `PROMETHEUS_URL`, `INFLUXDB_URL`, `SENSU_URL` | no | localhost | The monitoring stack. |
+| `LOG_LEVEL`, `LOG_FORMAT` | no | `INFO`, `json` | Logging. |
+| `BINARY_LOG_DIR`, `CHECKPOINT_DIR`, `ARTIFACT_DIR` | no | `var/…` | Runtime paths. |
+
+Secrets are never logged. The redaction list in `config/logging.yaml` is
+binding.
+
+---
+
+## The runtime directories
+
+Everything under `var/` is runtime state and is gitignored:
+
+```
+var/
+├── logs/         structured application logs
+├── binary-logs/  the audit log
+├── checkpoints/  ingestion checkpoints
+├── artifacts/    Parquet and NPZ artefacts
+├── kafka/        local broker data
+└── db/           local database data
+```
+
+Delete `var/` at any time. It is rebuilt by `make bootstrap` and by the
+services.
+
+---
+
+## The generated code
+
+`contracts/` is the source of truth; `.gen/` holds the generated stubs and
+is gitignored.
 
 ```bash
-make infra-up          # start everything, wait until it is healthy
-make topics            # create the Kafka topics
-make infra-logs        # tail it
-make infra-down        # stop it
-make infra-reset       # stop it and delete the volumes
+make proto          # buf lint, then generate into .gen/
 ```
 
-What runs:
-
-| Service | Port | Purpose |
+| Language | Output | Import as |
 | --- | --- | --- |
-| Kafka | 9092 | The message broker (KRaft mode). |
-| TimescaleDB | 5432 | The time-series store. |
-| PostgreSQL | 5433 | The relational store. |
-| Prometheus | 9090 | Metrics and alerting rules. |
-| Grafana | 3000 | Dashboards (`admin` / `admin` by default). |
-| InfluxDB | 8086 | Long-horizon metrics. |
-| Sensu | 8080 | Alert dispatch. |
+| Python | `.gen/python` | `volpulse.options.v1.quote_pb2` |
+| C++ | `.gen/cpp` | `volpulse/options/v1/quote.pb.h` |
 
-Artifactory is behind an opt-in profile, because it is heavy:
+The Python stubs are not on the path by default. Add them:
 
 ```bash
-docker compose --profile artifactory up -d
+export PYTHONPATH="$PWD/.gen/python:$PWD/libs/py-core/src:$PWD/services/analytics-py/src"
 ```
 
-## Running the pipeline
+`make test` does this for you, which is why the contract tests run without
+any setup.
 
-### Without upstream access
-
-The replay path exercises the whole pipeline without spending quota:
-
-```bash
-python tools/scripts/seed_market_data.py \
-  --symbol AAPL --output var/replay/aapl.ndjson
-
-build/bin/volpulse-ingestion \
-  --replay var/replay/aapl.ndjson \
-  --binary-log var/binary-logs/options.vlog \
-  --no-dry-run
-```
-
-The quotes land in the binary audit log. Read them back with the reader, or
-check the file size: it is exactly the size of the records, because the
-writer trims the file to its logical size when it closes.
-
-### With upstream access
-
-```bash
-make run-stack
-```
-
-This starts the analytics engine and the ingestion engine together. The
-analytics engine needs the generated stubs, so the script generates them if
-they are missing.
-
-## Tests
-
-```bash
-make test           # everything
-make test-py        # pytest, including the property tests
-make test-cpp       # ctest
-```
-
-The Python property tests use `hypothesis`; they generate thousands of
-cases, so the first run takes noticeably longer than the second (Hypothesis
-caches the failures it has seen).
-
-## Linting and formatting
-
-```bash
-make lint           # ruff, mypy --strict, clang-format, buf lint
-make format         # apply the fixes
-```
-
-`mypy` runs in strict mode and `buf lint` runs the standard rule set. Both
-are enforced in CI, so a green local run and a green CI mean the same thing.
+---
 
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| `make install-py` fails on Python 3.14 | Some wheels are not published yet. | Use 3.12 or 3.13. |
-| CMake cannot find protobuf | vcpkg was not bootstrapped. | `bash tools/scripts/bootstrap_cpp.sh`. |
-| `buf` is not found | The code generator is missing. | `brew install buf`, then `make proto`. |
-| Kafka topics are missing | The broker does not auto-create them. | `make topics`. |
-| `IVOL_API_KEY` errors | The placeholder is still in `.env`. | Fill it in. |
-| Ports already in use | Something else is using 9092/5432/9090. | Stop it, or change the port in `docker-compose.yml`. |
+| `Specified path 'pyproject.toml' is not a valid directory` | `poetry -C` was given a file | Use `poetry -C .` |
+| `ruff-lsp requires Python >=3.7,<3.12` | The dependency list is stale | `poetry -C . lock && poetry -C . install` |
+| `no versions match numba/numpy` | Conflicting pins | `poetry -C . lock` after loosening the constraint |
+| `No module named '_cffi_backend'` | A broken Poetry install | `pipx reinstall poetry` |
+| `vcpkg.json was rejected ... "builtin-baseline"` | The manifest lost its baseline | `git checkout vcpkg.json` |
+| `buf: command not found` | Codegen skipped | `brew install buf && make proto` |
+| `clang-format: No such file` | The C++ format gate skipped | `brew install clang-format` |
+| `docker: command not found` | The full stack cannot start | Install Docker Desktop, or use `make demo` |
+| Ports 9092/5432/9090 in use | Another service holds them | Stop it, or change the port in `docker-compose.yml` |
+| `poetry` picks up the wrong interpreter | A stale venv | `poetry -C . env use 3.12` |
+
+---
 
 ## Where things are
 
 ```bash
-make tree            # the layout, generated from the filesystem
+make tree
 ```
 
-If the tree does not answer "where does this live?", that is a bug in the
-tree, and the fix belongs in the layout — not in a note.
+The tree is generated from the filesystem, so it cannot drift from reality.
+If it does not answer *"where does this live?"*, that is a bug in the
+layout — and the fix belongs in the layout, not in a note.

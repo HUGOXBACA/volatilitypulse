@@ -77,7 +77,9 @@ class BinaryLogSink final : public QuoteSink {
   void flush() override;
 
   /// Number of quotes written since construction.
-  [[nodiscard]] std::uint64_t written() const noexcept { return written_; }
+  [[nodiscard]] std::uint64_t written() const noexcept {
+    return written_;
+  }
 
  private:
   binarylog::MappedWriter writer_;
@@ -90,7 +92,9 @@ class NullSink final : public QuoteSink {
   void write(const Quote& quote) override;
   void flush() override;
 
-  [[nodiscard]] std::uint64_t written() const noexcept { return written_; }
+  [[nodiscard]] std::uint64_t written() const noexcept {
+    return written_;
+  }
 
  private:
   std::uint64_t written_{0};

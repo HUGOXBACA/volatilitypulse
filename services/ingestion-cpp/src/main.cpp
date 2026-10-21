@@ -56,16 +56,15 @@ int main(int argc, char** argv) {
         NullSink sink;
         Pipeline pipeline(source, sink, config);
         const auto stats = pipeline.run(g_stop_requested);
-        std::cout << "ingestion complete (dry-run): " << stats.quotes_written
-                  << " quotes in " << stats.batches << " batches, " << stats.elapsed_seconds
-                  << "s" << std::endl;
+        std::cout << "ingestion complete (dry-run): " << stats.quotes_written << " quotes in "
+                  << stats.batches << " batches, " << stats.elapsed_seconds << "s" << std::endl;
         return 0;
       }
       BinaryLogSink sink(config.binary_log_path);
       Pipeline pipeline(source, sink, config);
       const auto stats = pipeline.run(g_stop_requested);
-      std::cout << "ingestion complete: " << stats.quotes_written << " quotes in "
-                << stats.batches << " batches, " << stats.elapsed_seconds << "s, audit log "
+      std::cout << "ingestion complete: " << stats.quotes_written << " quotes in " << stats.batches
+                << " batches, " << stats.elapsed_seconds << "s, audit log "
                 << config.binary_log_path.string() << std::endl;
       return 0;
     }

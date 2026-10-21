@@ -20,9 +20,8 @@ from __future__ import annotations
 import asyncio
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager, contextmanager
-from typing import AsyncIterator
 
 __all__ = ["RateLimiter"]
 
@@ -37,16 +36,16 @@ class RateLimiter:
     """
 
     __slots__ = (
+        "_acquired",
+        "_async_lock",
+        "_inflight",
         "_interval",
         "_max_concurrency",
-        "_async_lock",
-        "_thread_lock",
-        "_semaphore",
         "_next_slot",
-        "_acquired",
-        "_wait_seconds",
         "_peak_inflight",
-        "_inflight",
+        "_semaphore",
+        "_thread_lock",
+        "_wait_seconds",
     )
 
     def __init__(self, rate_per_second: float, *, max_concurrency: int = 1) -> None:

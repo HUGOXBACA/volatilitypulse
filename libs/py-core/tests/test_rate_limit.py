@@ -6,7 +6,6 @@ import asyncio
 import time
 
 import pytest
-
 from volpulse_core.clients.ivolatility.rate_limit import RateLimiter
 
 
@@ -38,9 +37,8 @@ def test_slot_releases_on_exception() -> None:
     """An exception inside the slot must not leak concurrency."""
     limiter = RateLimiter(1000.0)
 
-    with pytest.raises(RuntimeError):
-        with limiter.sync_slot():
-            raise RuntimeError("boom")
+    with pytest.raises(RuntimeError), limiter.sync_slot():
+        raise RuntimeError("boom")
 
     with limiter.sync_slot():
         pass

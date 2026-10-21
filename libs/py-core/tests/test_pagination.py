@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
 from volpulse_core.clients.ivolatility.pagination import Page, iter_pages, poll_for_download
 
 
@@ -30,7 +29,7 @@ async def test_poll_returns_as_soon_as_the_job_is_ready() -> None:
         fetch,
         "https://example.invalid/details/7",
         poll_interval=0.01,
-        timeout=5.0,
+        max_wait_seconds=5.0,
         sleep=sleep,
     )
 
@@ -57,7 +56,7 @@ async def test_poll_times_out_when_the_job_never_completes() -> None:
             fetch,
             "https://example.invalid/details/7",
             poll_interval=1.0,
-            timeout=3.0,
+            max_wait_seconds=3.0,
             monotonic=monotonic,
             sleep=sleep,
         )
@@ -88,6 +87,7 @@ async def test_iter_pages_walks_every_page() -> None:
 @pytest.mark.asyncio
 async def test_iter_pages_respects_max_pages() -> None:
     """The page cap must stop the walk."""
+
     async def fetch(index: int) -> Page:
         return Page(records=({"id": index},), next_page=index + 1)
 

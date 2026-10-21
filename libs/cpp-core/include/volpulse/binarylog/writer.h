@@ -39,7 +39,7 @@ class MappedWriter {
   /// \throws std::filesystem::filesystem_error on open failure.
   /// \throws std::runtime_error on mapping failure.
   explicit MappedWriter(const std::filesystem::path& path,
-                         std::size_t initial_capacity = kDefaultMapCapacity);
+                        std::size_t initial_capacity = kDefaultMapCapacity);
 
   ~MappedWriter();
 
@@ -54,8 +54,7 @@ class MappedWriter {
   /// \param timestamp_ns Event timestamp of the record, in nanoseconds since
   ///                     the Unix epoch.
   /// \throws std::runtime_error if the mapping cannot be grown.
-  [[nodiscard]] std::uint64_t append(std::span<const std::byte> payload,
-                                     std::int64_t timestamp_ns);
+  [[nodiscard]] std::uint64_t append(std::span<const std::byte> payload, std::int64_t timestamp_ns);
 
   /// Convenience overload for string payloads.
   [[nodiscard]] std::uint64_t append(std::string_view text, std::int64_t timestamp_ns);
@@ -67,13 +66,19 @@ class MappedWriter {
   void sync();
 
   /// Number of bytes logically written (excludes unused capacity).
-  [[nodiscard]] std::uint64_t size() const noexcept { return end_offset_; }
+  [[nodiscard]] std::uint64_t size() const noexcept {
+    return end_offset_;
+  }
 
   /// Sequence number that the next appended record will receive.
-  [[nodiscard]] std::uint64_t sequence() const noexcept { return next_sequence_; }
+  [[nodiscard]] std::uint64_t sequence() const noexcept {
+    return next_sequence_;
+  }
 
   /// Path of the log file.
-  [[nodiscard]] const std::filesystem::path& path() const noexcept { return path_; }
+  [[nodiscard]] const std::filesystem::path& path() const noexcept {
+    return path_;
+  }
 
  private:
   void map_window(std::size_t capacity);

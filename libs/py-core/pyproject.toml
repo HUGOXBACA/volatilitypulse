@@ -9,25 +9,28 @@ authors = [
     { name = "One_Byte_At_A_Time", email = "codeberg.reorder429@passfwd.com" }
 ]
 dependencies = [
+    # ── HTTP ───────────────────────────────────────────────────────────────
     "httpx>=0.27",
-    "pandas>=2.2",
-    "pandera>=0.20",
+    "requests>=2.32",
+    # ── Data frames & validation ───────────────────────────────────────────
     "polars>=1.9",
+    "pandas>=2.2",
+    "numpy>=2.2,<2.6",
+    "pyarrow>=17.0",
+    "pandera[pandas]>=0.24",
+    "scipy>=1.14",
+    # ── Observability ───────────────────────────────────────────────────────
     "prometheus-client>=0.21",
-    "pydantic>=2.9",
+    # ── Configuration ───────────────────────────────────────────────────────
     "python-dotenv>=1.0",
     "pyyaml>=6.0",
-    "numpy>=2.1",
-    "scipy>=1.14",
 ]
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=8.3",
-    "pytest-asyncio>=0.24",
-    "hypothesis>=6.112",
-    "ruff>=0.7",
-    "mypy>=1.13",
+# The hardware acceleration path described in ADR 0004.
+accelerate = [
+    "numba>=0.63",
+    "jax>=0.12",
 ]
 
 [build-system]
@@ -36,3 +39,10 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 packages = [{ include = "volpulse_core", from = "src" }]
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=8.3"
+pytest-asyncio = ">=0.24"
+hypothesis = ">=6.112"
+ruff = ">=0.7"
+mypy = ">=1.13"

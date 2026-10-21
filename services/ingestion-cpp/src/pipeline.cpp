@@ -4,8 +4,8 @@
 #include "volpulse/ingestion/pipeline.h"
 
 #include <chrono>
-#include <system_error>
 #include <stdexcept>
+#include <system_error>
 #include <thread>
 
 #include "volpulse/ingestion/quote_codec.h"
@@ -52,8 +52,7 @@ Pipeline::Pipeline(QuoteSource& source, QuoteSink& sink, IngestionConfig config)
 PipelineStats Pipeline::run(const std::atomic_bool& stop_requested) {
   PipelineStats stats{};
   const auto started = std::chrono::steady_clock::now();
-  const auto idle_interval =
-      std::chrono::duration<double>(config_.poll_interval_seconds);
+  const auto idle_interval = std::chrono::duration<double>(config_.poll_interval_seconds);
 
   while (!stop_requested.load(std::memory_order_relaxed)) {
     std::vector<Quote> batch;
@@ -64,7 +63,7 @@ PipelineStats Pipeline::run(const std::atomic_bool& stop_requested) {
       // process lifetime, so back off and retry.
       ++stats.source_errors;
       std::this_thread::sleep_for(
-          std::chrono::duration_cast<std::chrono::steady_clock::duration>(idle_interval));
+        std::chrono::duration_cast<std::chrono::steady_clock::duration>(idle_interval));
       continue;
     }
 
@@ -73,7 +72,7 @@ PipelineStats Pipeline::run(const std::atomic_bool& stop_requested) {
         break;
       }
       std::this_thread::sleep_for(
-          std::chrono::duration_cast<std::chrono::steady_clock::duration>(idle_interval));
+        std::chrono::duration_cast<std::chrono::steady_clock::duration>(idle_interval));
       continue;
     }
 
@@ -92,7 +91,7 @@ PipelineStats Pipeline::run(const std::atomic_bool& stop_requested) {
 
   sink_.flush();
   stats.elapsed_seconds =
-      std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
+    std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
   return stats;
 }
 

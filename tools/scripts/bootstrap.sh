@@ -33,7 +33,7 @@ fi
 
 # ── Python ────────────────────────────────────────────────────────────────
 info "installing the Python workspace"
-poetry -C pyproject.toml install --no-interaction
+poetry -C . install --no-interaction
 poetry -C libs/py-core install --no-interaction
 poetry -C services/analytics-py install --no-interaction
 

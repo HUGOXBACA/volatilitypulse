@@ -1,52 +1,16 @@
 {
-  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/buildsystems/vcpkg.schema.json",
   "name": "volpulse-cpp",
   "version": "0.1.0",
   "description": "C++ dependencies for the VolPulse ingestion engine",
+  "builtin-baseline": "857036234d15fbed8f30fed66e898d7725446c0c",
   "dependencies": [
-    {
-      "name": "protobuf",
-      "version>=": "4.28.0"
-    },
-    {
-      "name": "grpc",
-      "version>=": "1.60.0"
-    },
-    {
-      "name": "librdkafka",
-      "version>=": "2.3.0"
-    },
-    {
-      "name": "curl",
-      "version>=": "8.8.0"
-    },
-    {
-      "name": "openssl",
-      "version>=": "3.3.0"
-    },
-    {
-      "name": "nlohmann-json",
-      "version>=": "3.11.0"
-    },
-    {
-      "name": "cxxopts",
-      "version>=": "3.2.0"
-    },
-    {
-      "name": "spdlog",
-      "version>=": "1.14.0"
-    },
-    {
-      "name": "crc32c",
-      "version>=": "1.1.2"
-    },
-    {
-      "name": "benchmark",
-      "version>=": "1.8.3"
-    },
-    {
-      "name": "gtest",
-      "version>=": "1.14.0"
-    }
+    "protobuf",
+    "grpc",
+    "librdkafka",
+    "curl",
+    "openssl",
+    "nlohmann-json",
+    "spdlog"
   ]
 }

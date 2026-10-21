@@ -48,16 +48,17 @@ void test_round_trip() {
   const auto path = dir / "quotes.vlog";
 
   const std::vector<std::string> payloads = {
-      "first payload",
-      "second payload with a slightly longer body to exercise the alignment path",
-      "x",
-      "",
+    "first payload",
+    "second payload with a slightly longer body to exercise the alignment path",
+    "x",
+    "",
   };
 
   {
     volpulse::binarylog::MappedWriter writer(path, 4096);
     for (std::size_t index = 0; index < payloads.size(); ++index) {
-      const auto offset = writer.append(payloads[index], 1'700'000'000'000'000'000LL + static_cast<std::int64_t>(index));
+      const auto offset = writer.append(
+        payloads[index], 1'700'000'000'000'000'000LL + static_cast<std::int64_t>(index));
       CHECK(offset > 0 || index == 0);
     }
     writer.sync();
@@ -188,8 +189,8 @@ void test_growth_beyond_initial_capacity() {
 void test_crc_known_vector() {
   // The IEEE 802.3 CRC-32 of "123456789" is 0xCBF43926.
   const std::string input = "123456789";
-  const auto bytes = std::span<const std::byte>(
-      reinterpret_cast<const std::byte*>(input.data()), input.size());
+  const auto bytes =
+    std::span<const std::byte>(reinterpret_cast<const std::byte*>(input.data()), input.size());
   CHECK(volpulse::binarylog::crc32_ieee(bytes) == 0xCBF43926U);
 }
 

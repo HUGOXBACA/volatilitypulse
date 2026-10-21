@@ -61,8 +61,12 @@ class FixedQuoteSource final : public volpulse::ingestion::QuoteSource {
     return batch;
   }
 
-  bool exhausted() const override { return remaining_ == 0; }
-  std::string describe() const override { return "fixed"; }
+  bool exhausted() const override {
+    return remaining_ == 0;
+  }
+  std::string describe() const override {
+    return "fixed";
+  }
 
  private:
   std::size_t remaining_;
@@ -164,9 +168,13 @@ void test_ndjson_source() {
   const auto path = dir / "quotes.ndjson";
   {
     std::ofstream stream(path);
-    stream << R"({"contract_id":"c1","underlying_symbol":"MSFT","strike":400.0,"bid":2.0,"ask":2.1,"last":2.05,"implied_volatility":0.22,"timestamp_ns":1700000000000000000})" << '\n';
+    stream
+      << R"({"contract_id":"c1","underlying_symbol":"MSFT","strike":400.0,"bid":2.0,"ask":2.1,"last":2.05,"implied_volatility":0.22,"timestamp_ns":1700000000000000000})"
+      << '\n';
     stream << "# a comment line\n";
-    stream << R"({"contract_id":"c2","underlying_symbol":"MSFT","strike":410.0,"bid":2.4,"ask":2.5,"last":2.45,"implied_volatility":0.23,"timestamp_ns":1700000000000000001})" << '\n';
+    stream
+      << R"({"contract_id":"c2","underlying_symbol":"MSFT","strike":410.0,"bid":2.4,"ask":2.5,"last":2.45,"implied_volatility":0.23,"timestamp_ns":1700000000000000001})"
+      << '\n';
   }
 
   volpulse::ingestion::NdjsonQuoteSource source(path);

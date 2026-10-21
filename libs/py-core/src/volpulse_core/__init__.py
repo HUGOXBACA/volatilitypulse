@@ -3,11 +3,11 @@
 This package holds everything the analytics service needs that is *not* the
 service itself:
 
-* :mod:`volpulse.models`   – immutable domain types (slots, frozen).
-* :mod:`volpulse.schemas`  – pandera schemas validating upstream payloads.
-* :mod:`volpulse.clients`  – IVolatility REST/WebSocket clients.
-* :mod:`volpulse.io`       – Parquet / NPZ artefact persistence.
-* :mod:`volpulse.observability` – metrics and structured logging.
+* :mod:`volpulse_core.models`       - immutable domain types (slots, frozen).
+* :mod:`volpulse_core.schemas`      - pandera schemas validating upstream payloads.
+* :mod:`volpulse_core.clients`      - IVolatility REST/WebSocket clients.
+* :mod:`volpulse_core.io`           - Parquet / NPZ artefact persistence.
+* :mod:`volpulse_core.observability` - metrics and structured logging.
 
 The service that consumes this library lives in ``services/analytics-py``.
 """

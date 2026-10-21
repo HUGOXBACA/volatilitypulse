@@ -18,10 +18,11 @@ import sys
 import threading
 from types import FrameType
 
-from volpulse_analytics.consumer import AnalyticsConsumer, ProtobufQuoteDecoder
-from volpulse_analytics.persistence.timescale import TimescaleConnection, TimescaleWriter
 from volpulse_core.config import Settings, load_settings
 from volpulse_core.observability.metrics import VolPulseMetrics
+
+from volpulse_analytics.consumer import AnalyticsConsumer, ProtobufQuoteDecoder
+from volpulse_analytics.persistence.timescale import TimescaleConnection, TimescaleWriter
 
 __all__ = ["main"]
 
@@ -87,7 +88,9 @@ def main(argv: list[str] | None = None) -> int:
     consumer = AnalyticsConsumer(decoder, metrics, writer)
 
     try:
-        from prometheus_client import start_http_server
+        # Imported lazily so that `--help` and a configuration error do not
+        # pay for the client library.
+        from prometheus_client import start_http_server  # noqa: PLC0415
 
         start_http_server(args.metrics_port)
     except OSError as error:
@@ -109,9 +112,13 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _consume_forever(settings: Settings, consumer: AnalyticsConsumer, stop: threading.Event) -> None:
+def _consume_forever(
+    settings: Settings, consumer: AnalyticsConsumer, stop: threading.Event
+) -> None:
     """Consume from the broker until the stop event is set."""
-    from confluent_kafka import Consumer, KafkaError
+    # Imported lazily: the broker client is only needed once the process is
+    # actually configured and running.
+    from confluent_kafka import Consumer, KafkaError  # noqa: PLC0415
 
     kafka = Consumer(
         {
@@ -129,12 +136,17 @@ def _consume_forever(settings: Settings, consumer: AnalyticsConsumer, stop: thre
             message = kafka.poll(timeout=1.0)
             if message is None:
                 continue
-            if message.error():
-                if message.error().code() == KafkaError._PARTITION_EOF:
+            error = message.error()
+            if error is not None:
+                if error.code() == KafkaError._PARTITION_EOF:
                     continue
-                print(f"volpulse-analytics: broker error: {message.error()}", file=sys.stderr)
+                print(f"volpulse-analytics: broker error: {error}", file=sys.stderr)
                 continue
-            consumer.process(message.value())
+
+            payload = message.value()
+            if payload is None:
+                continue
+            consumer.process(payload)
             kafka.commit(message=message, asynchronous=False)
     finally:
         kafka.close()

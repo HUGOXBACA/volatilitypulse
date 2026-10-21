@@ -30,7 +30,7 @@ MappedReader::MappedReader(const std::filesystem::path& path) : path_(path) {
   }
 
   try {
-    struct stat status {};
+    struct stat status{};
     if (::fstat(fd_, &status) != 0) {
       throw system_error("fstat " + path_.string());
     }
@@ -54,11 +54,12 @@ MappedReader::MappedReader(const std::filesystem::path& path) : path_(path) {
     while (offset + kRecordHeaderSize <= scan_.valid_end) {
       RecordHeader header{};
       std::memcpy(&header, bytes + offset, kRecordHeaderSize);
-      const std::size_t padded = align_up(static_cast<std::size_t>(header.payload_size), kPayloadAlignment);
+      const std::size_t padded =
+        align_up(static_cast<std::size_t>(header.payload_size), kPayloadAlignment);
       const auto* payload = bytes + offset + kRecordHeaderSize;
       records_.push_back(RecordView{
-          header,
-          std::span<const std::byte>(payload, static_cast<std::size_t>(header.payload_size)),
+        header,
+        std::span<const std::byte>(payload, static_cast<std::size_t>(header.payload_size)),
       });
       offset += kRecordHeaderSize + padded;
     }

@@ -14,13 +14,12 @@ syntax = "proto3";
 package volpulse.options.v1;
 
 import "google/protobuf/timestamp.proto";
-import "volpulse/common/v1/common.proto";
 import "volpulse/options/v1/quote.proto";
 
+option csharp_namespace = "VolPulse.Options.V1";
 option go_package = "github.com/volpulse/gen/go/volpulse/options/v1;optionsv1";
 option java_multiple_files = true;
 option java_package = "com.volpulse.options.v1";
-option csharp_namespace = "VolPulse.Options.V1";
 
 // ── Kafka envelopes ────────────────────────────────────────────────────────
 
@@ -76,11 +75,11 @@ message FetchBackfillResponse {
   google.protobuf.Timestamp accepted_at = 3;
 }
 
-message IngestStatusRequest {
+message GetIngestStatusRequest {
   // Empty: status of the whole ingestion engine.
 }
 
-message IngestStatusResponse {
+message GetIngestStatusResponse {
   bool healthy = 1;
   // Symbols currently being polled.
   repeated string active_symbols = 2;
@@ -108,11 +107,11 @@ message RecomputeSurfaceResponse {
 }
 
 // Control plane for the ingestion engine.
-service IngestionControl {
+service IngestionControlService {
   // Request an asynchronous historical backfill.
   rpc FetchBackfill(FetchBackfillRequest) returns (FetchBackfillResponse);
   // Health and progress of the ingestion engine.
-  rpc GetIngestStatus(IngestStatusRequest) returns (IngestStatusResponse);
+  rpc GetIngestStatus(GetIngestStatusRequest) returns (GetIngestStatusResponse);
   // Trigger a surface recomputation in the analytics engine.
   rpc RecomputeSurface(RecomputeSurfaceRequest) returns (RecomputeSurfaceResponse);
 }

@@ -58,7 +58,9 @@ class OptionQuote:
         if self.strike <= 0.0:
             raise ValueError(f"non-positive strike in quote {self.contract_id!r}")
         if self.bid > 0.0 and self.ask > 0.0 and self.bid > self.ask:
-            raise ValueError(f"crossed quote in {self.contract_id!r}: bid {self.bid} > ask {self.ask}")
+            raise ValueError(
+                f"crossed quote in {self.contract_id!r}: bid {self.bid} > ask {self.ask}"
+            )
 
     @property
     def mid(self) -> float:

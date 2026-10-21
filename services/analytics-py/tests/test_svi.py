@@ -13,10 +13,13 @@ from volpulse_analytics.surfaces.svi import (
     log_moneyness,
 )
 
+#: A reference slice that is comfortably inside the arbitrage-free region.
+REFERENCE_SURFACE = SviParams(a=0.05, b=0.03, rho=-0.10, m=0.0, sigma=0.60)
+
 
 def _synthetic_surface(
     k: np.ndarray,
-    params: SviParams = SviParams(a=0.05, b=0.03, rho=-0.10, m=0.0, sigma=0.60),
+    params: SviParams = REFERENCE_SURFACE,
 ) -> np.ndarray:
     """Total variance of a reference surface."""
     return params.total_variance(k)

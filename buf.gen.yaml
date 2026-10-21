@@ -21,10 +21,6 @@ plugins:
     opt: lite
   - remote: buf.build/grpc/cpp:v1.67.1
     out: .gen/cpp
-    opt:
-      - lite
-      - grpc_services
-      - require_unimplemented_servers=false
 
   # ── Python (analytics engine) ─────────────────────────────────────────────
   - remote: buf.build/protocolbuffers/python:v28.3
@@ -33,6 +29,3 @@ plugins:
       - pyi_out
   - remote: buf.build/grpc/python:v1.67.1
     out: .gen/python
-    opt:
-      - pyi_out
-      - grpc_service_config

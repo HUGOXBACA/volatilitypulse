@@ -57,7 +57,8 @@ static_assert(offsetof(QuoteRecord, strike) == 16,
 
 /// Encode `quote` into `out`.
 /// \return A span over the encoded bytes.
-[[nodiscard]] std::span<const std::byte> encode_quote(const Quote& quote, QuoteRecord& out) noexcept;
+[[nodiscard]] std::span<const std::byte> encode_quote(const Quote& quote,
+                                                      QuoteRecord& out) noexcept;
 
 /// Decode a quote previously produced by `encode_quote`.
 /// \return false when the magic, version or framing is invalid.

@@ -15,6 +15,8 @@ Conventions
 
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from scipy.special import ndtr
@@ -36,12 +38,14 @@ def _norm_cdf(x: NDArray[np.float64]) -> NDArray[np.float64]:
     implementation: it is both faster and accurate in the far tails, which
     is where deep out-of-the-money quotes live.
     """
-    return ndtr(x)
+    # ndtr is typed as returning Any; the cast documents the real type.
+    return cast(NDArray[np.float64], np.asarray(ndtr(x), dtype=np.float64))
 
 
 def _norm_pdf(x: NDArray[np.float64]) -> NDArray[np.float64]:
     """Standard normal probability density function."""
-    return np.exp(-0.5 * x * x) / np.sqrt(2.0 * np.pi)
+    density = np.exp(-0.5 * x * x) / np.sqrt(2.0 * np.pi)
+    return cast(NDArray[np.float64], np.asarray(density, dtype=np.float64))
 
 
 def _as_array(value: ArrayLike) -> NDArray[np.float64]:
@@ -144,20 +148,28 @@ def black_scholes_greeks(
 
         gamma = discount_q * pdf_d1 / (s * safe_sigma * sqrt_t)
         vega = s * discount_q * pdf_d1 * sqrt_t
-        rho = k * t * discount_r * _norm_cdf(d2) if is_call else -k * t * discount_r * _norm_cdf(-d2)
+        rho = (
+            k * t * discount_r * _norm_cdf(d2) if is_call else -k * t * discount_r * _norm_cdf(-d2)
+        )
 
         theta_common = -(s * pdf_d1 * safe_sigma * discount_q) / (2.0 * sqrt_t)
         theta = (
             theta_common - r * k * discount_r * _norm_cdf(d2) + q * s * discount_q * _norm_cdf(d1)
             if is_call
-            else theta_common + r * k * discount_r * _norm_cdf(-d2) - q * s * discount_q * _norm_cdf(-d1)
+            else theta_common
+            + r * k * discount_r * _norm_cdf(-d2)
+            - q * s * discount_q * _norm_cdf(-d1)
         )
         # Annual theta is quoted per calendar day.
         theta = theta / 365.0
 
         # At expiry the sensitivities collapse to their piecewise constants.
         expired = t <= 0.0
-        delta = np.where(expired, np.where(is_call, (s > k).astype(np.float64), (s < k).astype(np.float64) * -1.0), delta)
+        delta = np.where(
+            expired,
+            np.where(is_call, (s > k).astype(np.float64), (s < k).astype(np.float64) * -1.0),
+            delta,
+        )
         gamma = np.where(expired, 0.0, gamma)
         vega = np.where(expired, 0.0, vega)
         theta = np.where(expired, 0.0, theta)
@@ -223,12 +235,7 @@ def implied_volatility_from_price(
         )
         upper_bound = s * discount_q if is_call else k * discount_r
 
-        solvable = (
-            np.isfinite(price)
-            & (t > 0.0)
-            & (price > lower_bound)
-            & (price < upper_bound)
-        )
+        solvable = np.isfinite(price) & (t > 0.0) & (price > lower_bound) & (price < upper_bound)
 
         low = np.full(np.broadcast(price, s, k, t, r, q).shape, _VOL_FLOOR, dtype=np.float64)
         high = np.full(low.shape, _VOL_CAP, dtype=np.float64)

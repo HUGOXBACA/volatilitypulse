@@ -36,7 +36,7 @@ MappedWriter::MappedWriter(const std::filesystem::path& path, std::size_t initia
   }
 
   try {
-    struct stat status {};
+    struct stat status{};
     if (::fstat(fd_, &status) != 0) {
       throw system_error("fstat " + path_.string());
     }
@@ -178,7 +178,8 @@ std::uint64_t MappedWriter::append(std::span<const std::byte> payload, std::int6
     std::memcpy(base + record_offset + kRecordHeaderSize, payload.data(), payload.size());
   }
   if (padded > payload.size()) {
-    std::memset(base + record_offset + kRecordHeaderSize + payload.size(), 0, padded - payload.size());
+    std::memset(base + record_offset + kRecordHeaderSize + payload.size(), 0,
+                padded - payload.size());
   }
 
   end_offset_ += required;

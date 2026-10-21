@@ -16,10 +16,10 @@ package volpulse.options.v1;
 import "google/protobuf/timestamp.proto";
 import "volpulse/common/v1/common.proto";
 
+option csharp_namespace = "VolPulse.Options.V1";
 option go_package = "github.com/volpulse/gen/go/volpulse/options/v1;optionsv1";
 option java_multiple_files = true;
 option java_package = "com.volpulse.options.v1";
-option csharp_namespace = "VolPulse.Options.V1";
 
 // ── Risk ───────────────────────────────────────────────────────────────────
 

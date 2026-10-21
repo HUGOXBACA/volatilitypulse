@@ -67,13 +67,15 @@ ScanResult scan_records(std::span<const std::byte> data) noexcept {
       break;
     }
 
-    const std::size_t padded = align_up(static_cast<std::size_t>(header.payload_size), kPayloadAlignment);
+    const std::size_t padded =
+      align_up(static_cast<std::size_t>(header.payload_size), kPayloadAlignment);
     if (offset + kRecordHeaderSize + padded > data.size()) {
       break;
     }
 
     const auto* payload = data.data() + offset + kRecordHeaderSize;
-    const auto payload_span = std::span<const std::byte>(payload, static_cast<std::size_t>(header.payload_size));
+    const auto payload_span =
+      std::span<const std::byte>(payload, static_cast<std::size_t>(header.payload_size));
     if (crc32_ieee(payload_span) != header.crc32) {
       break;
     }
@@ -89,8 +91,8 @@ ScanResult scan_records(std::span<const std::byte> data) noexcept {
     // unused capacity of the writer's mapping (benign) or a torn or
     // corrupted tail (damage). Only the latter is an error.
     const auto tail = data.subspan(result.valid_end);
-    const bool all_zero = std::all_of(tail.begin(), tail.end(),
-                                      [](std::byte byte) { return byte == std::byte{0}; });
+    const bool all_zero =
+      std::all_of(tail.begin(), tail.end(), [](std::byte byte) { return byte == std::byte{0}; });
     if (all_zero) {
       result.unused_capacity = true;
     } else {

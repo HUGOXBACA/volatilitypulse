@@ -11,10 +11,10 @@ package volpulse.common.v1;
 
 import "google/protobuf/timestamp.proto";
 
+option csharp_namespace = "VolPulse.Common.V1";
 option go_package = "github.com/volpulse/gen/go/volpulse/common/v1;commonv1";
 option java_multiple_files = true;
 option java_package = "com.volpulse.common.v1";
-option csharp_namespace = "VolPulse.Common.V1";
 
 // ── Enumerations ───────────────────────────────────────────────────────────
 

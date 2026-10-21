@@ -10,13 +10,26 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-PY_ROOT      := pyproject.toml
+PY_ROOT      := .
 PY_LIB       := libs/py-core
 PY_SERVICE   := services/analytics-py
 PROTO_DIR    := contracts
 GEN_DIR      := .gen
 BUILD_DIR    := build
 VAR_DIR      := var
+
+# vcpkg is optional: the core C++ library has no third-party dependencies.
+# When the manifest has been installed, the toolchain file is passed to CMake
+# so that the build finds protobuf, gRPC and the rest.
+VCPKG_DIR       := $(CURDIR)/.vcpkg
+VCPKG_TOOLCHAIN := $(VCPKG_DIR)/scripts/buildsystems/vcpkg.cmake
+ifneq ($(wildcard $(VCPKG_TOOLCHAIN)),)
+  VCPKG_FLAGS := -DCMAKE_TOOLCHAIN_FILE=$(VCPKG_TOOLCHAIN) \
+                 -DVCPKG_MANIFEST_DIR=$(CURDIR) \
+                 -DVCPKG_INSTALLED_DIR=$(CURDIR)/$(BUILD_DIR)/vcpkg_installed
+else
+  VCPKG_FLAGS :=
+endif
 
 # Local infra compose project (namespaced so it never collides with other work).
 COMPOSE      := docker compose -p volpulse
@@ -92,7 +105,7 @@ build: build-cpp build-py ## Build every language
 
 .PHONY: build-cpp
 build-cpp: ## Build the C++ ingestion service and shared libraries
-	cmake --preset dev
+	cmake --preset dev $(VCPKG_FLAGS)
 	cmake --build --preset dev
 
 .PHONY: build-py
@@ -108,7 +121,9 @@ test: test-py test-cpp ## Run every test suite
 
 .PHONY: test-py
 test-py: ## Run pytest (unit + integration + hypothesis property tests)
-	poetry -C $(PY_ROOT) run pytest $(PY_LIB)/tests $(PY_SERVICE)/tests $(PY_ROOT)/tests -v
+	PYTHONPATH="$(CURDIR)/$(GEN_DIR)/python:$(CURDIR)/$(PY_LIB)/src:$(CURDIR)/$(PY_SERVICE)/src" \
+	  poetry -C $(PY_ROOT) run pytest \
+	    $(PY_LIB)/tests $(PY_SERVICE)/tests $(PY_ROOT)/tests -v
 
 .PHONY: test-cpp
 test-cpp: ## Run C++ unit tests via ctest
@@ -124,10 +139,21 @@ lint-py: ## ruff lint + format check, mypy strict
 	poetry -C $(PY_ROOT) run mypy --strict $(PY_LIB)/src $(PY_SERVICE)/src
 
 .PHONY: lint-cpp
-lint-cpp: ## clang-format check + clang-tidy
-	@find libs/cpp-core services/ingestion-cpp -name '*.cpp' -o -name '*.h' \
-	  | xargs clang-format --dry-run --Werror
-	@cmake --build --preset dev --target clang-tidy
+lint-proto: ## Lint the protobuf contracts (skipped when buf is not installed)
+	@command -v buf >/dev/null 2>&1 || { \
+	  printf 'buf is not installed: skipping the contract lint\n'; \
+	  exit 0; \
+	}
+	buf lint $(PROTO_DIR)
+	buf format --diff --exit-code $(PROTO_DIR)
+
+lint-cpp: ## clang-format check (skipped when clang-format is not installed)
+	@command -v clang-format >/dev/null 2>&1 || { \
+	  printf 'clang-format is not installed: skipping the C++ format check\n'; \
+	  exit 0; \
+	}
+	@find libs/cpp-core services/ingestion-cpp \( -name '*.cpp' -o -name '*.h' \) -print0 \
+	  | xargs -0 clang-format --dry-run --Werror
 
 .PHONY: format
 format: ## Auto-format all sources
@@ -189,6 +215,20 @@ clean: ## Remove build artefacts and caches
 
 .PHONY: clean-all
 clean-all: clean infra-reset ## Remove build artefacts, caches and local volumes
+
+.PHONY: demo
+demo: ## Run the offline end-to-end demo (no Docker, no API key)
+	@bash tools/scripts/demo.sh
+
+.PHONY: inspect-log
+inspect-log: ## Inspect a binary audit log (LOG=path to override)
+	poetry -C $(PY_ROOT) run python tools/scripts/inspect_log.py \
+	  $(if $(LOG),$(LOG),var/binary-logs/options.vlog)
+
+.PHONY: seed
+seed: ## Generate a synthetic chain for the replay path
+	poetry -C $(PY_ROOT) run python tools/scripts/seed_market_data.py \
+	  --output var/replay/aapl.ndjson
 
 .PHONY: tree
 tree: ## Print the repository layout

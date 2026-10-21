@@ -11,7 +11,13 @@ from volpulse_analytics.greeks.portfolio import aggregate_portfolio_risk
 def test_empty_portfolio_has_no_risk() -> None:
     """An empty book aggregates to zero."""
     risk = aggregate_portfolio_risk(
-        spot=[], strike=[], time_to_expiry=[], rate=[], dividend_yield=[], volatility=[], quantity=[]
+        spot=[],
+        strike=[],
+        time_to_expiry=[],
+        rate=[],
+        dividend_yield=[],
+        volatility=[],
+        quantity=[],
     )
     assert risk.position_count == 0
     assert risk.delta == 0.0

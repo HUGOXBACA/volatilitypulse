@@ -51,7 +51,7 @@ async def poll_for_download(
     *,
     download_key: str = "urlForDownloads",
     poll_interval: float = 1.0,
-    timeout: float = 300.0,
+    max_wait_seconds: float = 300.0,
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
 ) -> str:
@@ -66,7 +66,7 @@ async def poll_for_download(
         details_url: URL of the job details endpoint.
         download_key: Key holding the download URL in the details payload.
         poll_interval: Seconds between two polls.
-        timeout: Maximum number of seconds to wait for the job.
+        max_wait_seconds: Maximum number of seconds to wait for the job.
         monotonic: Clock used for the timeout (injectable for tests).
         sleep: Awaitable sleep (injectable for tests).
 
@@ -78,10 +78,10 @@ async def poll_for_download(
     """
     if poll_interval <= 0.0:
         raise ValueError(f"poll_interval must be positive, got {poll_interval}")
-    if timeout <= 0.0:
-        raise ValueError(f"timeout must be positive, got {timeout}")
+    if max_wait_seconds <= 0.0:
+        raise ValueError(f"max_wait_seconds must be positive, got {max_wait_seconds}")
 
-    deadline = monotonic() + timeout
+    deadline = monotonic() + max_wait_seconds
 
     while True:
         payload = await fetch_details(details_url)
@@ -91,7 +91,8 @@ async def poll_for_download(
 
         if monotonic() >= deadline:
             raise TimeoutError(
-                f"job {details_url!r} did not publish {download_key!r} within {timeout:.1f}s"
+                f"job {details_url!r} did not publish {download_key!r} "
+                f"within {max_wait_seconds:.1f}s"
             )
 
         await sleep(poll_interval)

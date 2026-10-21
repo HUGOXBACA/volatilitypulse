@@ -8,7 +8,6 @@ rather than silently poison the surfaces and Greeks computed from it.
 from __future__ import annotations
 
 import pandera.pandas as pa
-from pandera.typing import Series
 
 __all__ = ["option_quote_schema"]
 
@@ -45,7 +44,9 @@ option_quote_schema = pa.DataFrameSchema(
     coerce=True,
     checks=[
         pa.Check(
-            lambda frame: ~(frame["bid"].gt(0.0) & frame["ask"].gt(0.0) & frame["bid"].gt(frame["ask"])),
+            lambda frame: (
+                ~(frame["bid"].gt(0.0) & frame["ask"].gt(0.0) & frame["bid"].gt(frame["ask"]))
+            ),
             error="crossed market: bid above ask",
         ),
     ],

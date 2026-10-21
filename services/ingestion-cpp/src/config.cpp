@@ -74,18 +74,18 @@ namespace {
 }
 
 constexpr std::string_view kUsage =
-    "volpulse-ingestion — VolPulse C++ ingestion & normalisation engine\n"
-    "\n"
-    "Usage: volpulse-ingestion [options]\n"
-    "\n"
-    "  --config <path>            Flat `key = value` configuration file\n"
-    "  --symbols <A,B>            Underlying symbols to poll\n"
-    "  --binary-log <path>        Binary audit log path\n"
-    "  --replay <path>            Replay quotes from a flat NDJSON file\n"
-    "  --max-batch <n>            Quotes per poll (default 512)\n"
-    "  --poll-interval <seconds>  Idle poll interval (default 1.0)\n"
-    "  --dry-run / --no-dry-run   Write to the audit log or not (default: on)\n"
-    "  --help                     Show this message\n";
+  "volpulse-ingestion — VolPulse C++ ingestion & normalisation engine\n"
+  "\n"
+  "Usage: volpulse-ingestion [options]\n"
+  "\n"
+  "  --config <path>            Flat `key = value` configuration file\n"
+  "  --symbols <A,B>            Underlying symbols to poll\n"
+  "  --binary-log <path>        Binary audit log path\n"
+  "  --replay <path>            Replay quotes from a flat NDJSON file\n"
+  "  --max-batch <n>            Quotes per poll (default 512)\n"
+  "  --poll-interval <seconds>  Idle poll interval (default 1.0)\n"
+  "  --dry-run / --no-dry-run   Write to the audit log or not (default: on)\n"
+  "  --help                     Show this message\n";
 
 }  // namespace
 
@@ -201,7 +201,7 @@ void IngestionConfig::validate() const {
   }
   if (replay_source.empty() && symbols.empty()) {
     throw std::runtime_error(
-        "no work configured: provide --symbols for live polling or --replay for replay");
+      "no work configured: provide --symbols for live polling or --replay for replay");
   }
 }
 
@@ -211,8 +211,8 @@ std::string IngestionConfig::describe() const {
   for (std::size_t index = 0; index < symbols.size(); ++index) {
     out << (index == 0 ? "" : ",") << symbols[index];
   }
-  out << "] binary_log=" << binary_log_path.string() << " replay="
-      << (replay_source.empty() ? "<live>" : replay_source.string())
+  out << "] binary_log=" << binary_log_path.string()
+      << " replay=" << (replay_source.empty() ? "<live>" : replay_source.string())
       << " max_batch=" << max_batch << " poll_interval=" << poll_interval_seconds
       << " dry_run=" << (dry_run ? "true" : "false");
   return out.str();

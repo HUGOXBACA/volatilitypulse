@@ -10,59 +10,61 @@ authors = [
 ]
 # Workspace root only: this project ships no importable package of its own.
 # The actual packages live in libs/py-core and services/analytics-py.
+dependencies = [
+    # ── HTTP / streaming ───────────────────────────────────────────────────
+    "requests>=2.32",
+    "aiohttp>=3.10",
+    "websockets>=13.0",
+    "httpx>=0.27",
+    # ── Data frames & validation ───────────────────────────────────────────
+    "polars>=1.9",
+    "pandas>=2.2",
+    # numba caps numpy below 2.6, jax requires 2.2 or newer, scipy caps it
+    # below 2.8: the intersection of those constraints is what is pinned here.
+    "numpy>=2.2,<2.6",
+    "pyarrow>=17.0",
+    "pandera[pandas]>=0.24",
+    # ── Numerics ───────────────────────────────────────────────────────────
+    "scipy>=1.14",
+    # ── Serialization / transport ──────────────────────────────────────────
+    "protobuf>=5.28,<7.0",
+    "grpcio>=1.68",
+    "grpcio-tools>=1.68",
+    "confluent-kafka>=2.6",
+    # ── Storage ────────────────────────────────────────────────────────────
+    "psycopg[binary,pool]>=3.2",
+    # ── Observability ───────────────────────────────────────────────────────
+    "prometheus-client>=0.21",
+    # ── Configuration ───────────────────────────────────────────────────────
+    "python-dotenv>=1.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+# The hardware acceleration path described in ADR 0004. It is not installed by
+# default: numba and jax pull in large binary wheels, and nothing imports
+# them yet. Install with `poetry install --extras accelerate` when the
+# numerical hot loop needs to leave the interpreter.
+accelerate = [
+    "numba>=0.63",
+    "jax>=0.12",
+]
 
 [tool.poetry]
+# The workspace root is not a distributable package; it only carries the
+# dependency set and the tooling configuration for the monorepo.
 package-mode = false
 
-[tool.poetry.dependencies]
-python = ">=3.12,<3.15"
-# ── HTTP / streaming ───────────────────────────────────────────────────────
-requests = "^2.32"
-aiohttp = "^3.10"
-websockets = "^13.0"
-httpx = "^0.27"
-# ── Data frames & validation ───────────────────────────────────────────────
-polars = "^1.9"
-pandas = "^2.2"
-numpy = "^2.1"
-pyarrow = "^17.0"
-pandera = { version = "^0.20", extras = ["pandas"] }
-# ── Numerics / hardware acceleration ───────────────────────────────────────
-numba = "^0.60"
-jax = "^0.4.35"
-scipy = "^1.14"
-# ── Serialization / transport ───────────────────────────────────────────────
-protobuf = "^5.28"
-grpcio = "^1.68"
-grpcio-tools = "^1.68"
-confluent-kafka = "^2.6"
-# ── Storage ────────────────────────────────────────────────────────────────
-psycopg = { version = "^3.2", extras = ["binary", "pool"] }
-sqlalchemy = "^2.0"
-# ── Observability ───────────────────────────────────────────────────────────
-prometheus-client = "^0.21"
-structlog = "^24.4"
-python-json-logger = "^2.0"
-# ── Configuration ──────────────────────────────────────────────────────────
-python-dotenv = "^1.0"
-pydantic = "^2.9"
-pydantic-settings = "^2.6"
-pyyaml = "^6.0"
-# ── Artifact IO ────────────────────────────────────────────────────────────
-h5py = "^3.12"
-
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.3"
-pytest-cov = "^6.0"
-pytest-asyncio = "^0.24"
-hypothesis = "^6.112"
-ruff = "^0.7"
-mypy = "^1.13"
-mypy-protobuf = "^3.5"
-types-requests = "^2.32"
-types-pyyaml = "^6.0"
-types-aiohttp = "^3.10"
-ruff-lsp = "^0.0.6"
+pytest = ">=8.3"
+pytest-cov = ">=6.0"
+pytest-asyncio = ">=0.24"
+hypothesis = ">=6.112"
+ruff = ">=0.7"
+mypy = ">=1.13"
+types-requests = ">=2.32"
+types-pyyaml = ">=6.0"
+scipy-stubs = ">=1.14"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -101,18 +103,25 @@ select = [
 ignore = [
     "ANN401",  # allow Any where genuinely dynamic (protobuf payloads)
     "PLR0913", # too many arguments — service constructors legitimately take config
+    "PLR0917", # too many positional arguments — the pricing convention is positional
     "S101",    # assert — allowed in tests
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/**" = ["S101", "PLR2004", "ANN201", "ARG001", "ARG002"]
+"**/tests/**" = ["S101", "PLR2004", "ANN201", "ARG001", "ARG002", "PLC0415"]
 "**/__init__.py" = ["F401"]
+# The command line entrypoints report to the terminal on purpose.
+"services/analytics-py/src/volpulse_analytics/main.py" = ["T201"]
+"libs/py-core/src/volpulse_core/clients/ivolatility/fetch_iv_data.py" = ["T201"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["volpulse", "volpulse_analytics"]
 
 [tool.mypy]
 python_version = "3.12"
+# The generated protobuf stubs live outside the package roots; mypy needs
+# them on the path to resolve the imports of the decoder.
+mypy_path = ".gen/python"
 strict = true
 warn_unreachable = true
 warn_unused_ignores = true
@@ -121,11 +130,16 @@ disallow_any_generics = true
 no_implicit_optional = true
 check_untyped_defs = true
 warn_return_any = true
-plugins = ["mypy_protobuf.main"]
 exclude = ["^\\.gen/", "^build/"]
 
 [[tool.mypy.overrides]]
 module = ["confluent_kafka.*", "numba.*", "jax.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# The generated stubs are build artefacts: they are imported, never checked.
+module = ["volpulse.*"]
+follow_imports = "skip"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

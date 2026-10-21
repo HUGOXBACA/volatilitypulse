@@ -19,8 +19,9 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -65,7 +66,9 @@ class HistoricalFetcher:
             max_concurrency=self.settings.ivol_max_concurrency,
         )
 
-    async def _get_json(self, client: httpx.AsyncClient, url: str, params: dict[str, Any]) -> dict[str, Any]:
+    async def _get_json(
+        self, client: httpx.AsyncClient, url: str, params: dict[str, Any]
+    ) -> dict[str, Any]:
         """Perform one paced GET request and decode the JSON body.
 
         Args:
@@ -81,7 +84,9 @@ class HistoricalFetcher:
         """
         limiter = self.limiter
         async with limiter.slot():
-            response = await client.get(url, params=params, timeout=self.settings.ivol_timeout_seconds)
+            response = await client.get(
+                url, params=params, timeout=self.settings.ivol_timeout_seconds
+            )
             response.raise_for_status()
             payload = response.json()
         return payload if isinstance(payload, dict) else {"records": payload}
@@ -92,7 +97,7 @@ class HistoricalFetcher:
         symbol: str,
         start: date,
         end: date,
-    ) -> list[dict[str, Any]]:
+    ) -> list[Mapping[str, Any]]:
         """Fetch every record of a historical window.
 
         Args:
@@ -122,7 +127,7 @@ class HistoricalFetcher:
             )
             payload = await self._get_json(client, download_url, {})
 
-        records: list[dict[str, Any]] = []
+        records: list[Mapping[str, Any]] = []
         page_number = 0
 
         async def fetch_page(index: int) -> Page:
@@ -148,7 +153,7 @@ class HistoricalFetcher:
         start: date,
         end: date,
         page_number: int,
-        records: list[dict[str, Any]],
+        records: list[Mapping[str, Any]],
     ) -> Path:
         """Persist the records fetched so far, so a crash can resume.
 
@@ -170,9 +175,7 @@ class HistoricalFetcher:
 
 async def _run(settings: Settings, output_dir: Path, symbols: list[str], days: int) -> int:
     """Fetch the requested windows and write them to the output directory."""
-    from datetime import timedelta
-
-    end = date.today()
+    end = datetime.now(UTC).date()
     start = end - timedelta(days=days)
 
     fetcher = HistoricalFetcher(settings=settings, output_dir=output_dir)

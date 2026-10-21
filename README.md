@@ -51,15 +51,26 @@ Three rules govern the layout:
 
 ## Quick start
 
+Ten minutes, no Docker and no API key needed for the first run:
+
 ```bash
-git clone <this repo> && cd volatilitypulse
-bash tools/scripts/bootstrap.sh     # toolchains, dependencies, code generation
+cd /Users/user0001/Projects/volatilitypulse
+bash tools/scripts/bootstrap.sh     # toolchains, dependencies, generated code
 
-cp .env.example .env                # then fill in IVOL_API_KEY
+make demo                           # seed → ingest → verify the audit log
+make test                           # every test suite, in every language
+make lint                           # ruff, mypy --strict, clang-format, buf
+```
 
+The demo prints the synthetic chain it generated and the records it wrote
+to the binary audit log. If that works, the build works.
+
+Then, with Docker:
+
+```bash
+cp .env.example .env                # fill in IVOL_API_KEY
 make infra-up                       # Kafka, TimescaleDB, Postgres, Prometheus…
 make topics                         # create the Kafka topics
-make test                           # every test suite, in every language
 make run-stack                      # ingestion + analytics, locally
 ```
 
@@ -69,13 +80,18 @@ Everything is driven through the `Makefile`:
 | --- | --- |
 | `make help` | List every target. |
 | `make bootstrap` | Install toolchains, dependencies, generated code. |
+| `make demo` | The offline end-to-end run. No Docker, no API key. |
 | `make proto` | Regenerate the stubs from `contracts/`. |
 | `make build` | Build the C++ workspace and byte-compile the Python. |
 | `make test` | Run the C++ and Python test suites. |
 | `make lint` / `make format` | ruff, mypy, clang-format, buf. |
+| `make inspect-log` | Read a binary audit log. |
 | `make infra-up` / `make infra-down` | Manage the local infrastructure. |
 | `make run-ingestion` / `make run-analytics` | Run a single service. |
 | `make tree` | Print the repository layout. |
+
+**Full instructions: [docs/development/getting-started.md](docs/development/getting-started.md).**
+How to drive each component: [docs/development/usage.md](docs/development/usage.md).
 
 ---
 
@@ -131,8 +147,10 @@ is listed as complete is built, tested and exercised by the test suites.
 
 * Read [`AGENTS.md`](AGENTS.md) — it holds the engineering standards that the
   code is held to (typing, linting, validation, performance rules).
-* Read [`docs/development/local-setup.md`](docs/development/local-setup.md)
+* Read [`docs/development/getting-started.md`](docs/development/getting-started.md)
   before your first change.
+* Read [`docs/development/usage.md`](docs/development/usage.md) to learn how
+  to drive the components.
 * Every architectural decision has an ADR in
   [`docs/adr/`](docs/adr/). If you disagree with one, write a new ADR that
   supersedes it — do not edit the old one.
@@ -144,6 +162,9 @@ is listed as complete is built, tested and exercised by the test suites.
 | Document | Purpose |
 | --- | --- |
 | [`IDEA.md`](IDEA.md) | The original design brief. |
+| [`docs/development/getting-started.md`](docs/development/getting-started.md) | Get it running in ten minutes. |
+| [`docs/development/usage.md`](docs/development/usage.md) | How to use each component. |
+| [`docs/development/local-setup.md`](docs/development/local-setup.md) | The environment reference. |
 | [`docs/architecture/overview.md`](docs/architecture/overview.md) | Component map: brief to code. |
 | [`docs/architecture/data-flow.md`](docs/architecture/data-flow.md) | How a quote travels through the system. |
 | [`docs/adr/`](docs/adr/) | Architectural decision records. |

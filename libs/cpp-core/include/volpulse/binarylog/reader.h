@@ -44,7 +44,9 @@ class MappedReader {
   MappedReader& operator=(const MappedReader&) = delete;
 
   /// Every valid record in file order.
-  [[nodiscard]] const std::vector<RecordView>& records() const noexcept { return records_; }
+  [[nodiscard]] const std::vector<RecordView>& records() const noexcept {
+    return records_;
+  }
 
   /// Verify the integrity of every record (magic, version, CRC).
   /// \param error Populated with a description of the first failure.
@@ -52,10 +54,14 @@ class MappedReader {
   [[nodiscard]] bool verify(std::string& error) const;
 
   /// True when trailing bytes were rejected during the initial scan.
-  [[nodiscard]] bool has_truncated_tail() const noexcept { return scan_.truncated_tail; }
+  [[nodiscard]] bool has_truncated_tail() const noexcept {
+    return scan_.truncated_tail;
+  }
 
   /// Offset just past the last valid record.
-  [[nodiscard]] std::size_t valid_end() const noexcept { return scan_.valid_end; }
+  [[nodiscard]] std::size_t valid_end() const noexcept {
+    return scan_.valid_end;
+  }
 
  private:
   void close_window() noexcept;

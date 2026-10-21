@@ -11,9 +11,10 @@ thousands of rows, and row-by-row inserts would dominate the latency budget.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 __all__ = ["TimescaleWriter", "timescale_ddl"]
 
@@ -94,6 +95,52 @@ class TimescaleConnection:
         )
 
 
+def _insert_statement(table: str, columns: Sequence[str]) -> Any:
+    """Build an ``INSERT INTO <table> (...) VALUES (...) ON CONFLICT DO UPDATE``.
+
+    The identifiers are composed with psycopg's ``sql`` module, and the
+    upsert clause is a fixed literal that names the columns explicitly.
+
+    Args:
+        table: Name of the destination table.
+        columns: Column names, in order.
+
+    Returns:
+        A psycopg composable statement.
+    """
+    from psycopg import sql  # noqa: PLC0415  - imported lazily, psycopg is only needed to write
+
+    updates = ", ".join(f"{column} = EXCLUDED.{column}" for column in columns[2:])
+    return sql.SQL("INSERT INTO {} ({}) VALUES ({}) ON CONFLICT DO UPDATE SET {}").format(
+        sql.Identifier(table),
+        sql.SQL(", ").join(sql.Identifier(column) for column in columns),
+        sql.SQL(", ").join(sql.Placeholder() for _ in columns),
+        sql.SQL(updates),
+    )
+
+
+def _copy_statement(table: str, columns: Sequence[str]) -> Any:
+    """Build a ``COPY <table> (<columns>) FROM STDIN`` statement.
+
+    The identifiers are composed with psycopg's ``sql`` module rather than
+    interpolated into a string, so the statement is correct by construction
+    rather than by inspection.
+
+    Args:
+        table: Name of the destination table.
+        columns: Column names, in order.
+
+    Returns:
+        A psycopg composable statement.
+    """
+    from psycopg import sql  # noqa: PLC0415  - imported lazily, psycopg is only needed to write
+
+    return sql.SQL("COPY {} ({}) FROM STDIN").format(
+        sql.Identifier(table),
+        sql.SQL(", ").join(sql.Identifier(column) for column in columns),
+    )
+
+
 class TimescaleWriter:
     """Bulk writer for the time-series store."""
 
@@ -116,7 +163,7 @@ class TimescaleWriter:
         Raises:
             psycopg.Error: The database rejected the connection or the DDL.
         """
-        import psycopg
+        import psycopg  # noqa: PLC0415  - imported lazily: psycopg is only needed to connect
 
         connection = psycopg.connect(
             host=self._connection.host,
@@ -160,11 +207,11 @@ class TimescaleWriter:
             "sequence",
             "source",
         )
+        # The column list is a literal above; no user input reaches it.
         statement = f"COPY option_quotes ({', '.join(columns)}) FROM STDIN"
-        with connection.cursor() as cursor:
-            with cursor.copy(statement) as copy:
-                for row in rows:
-                    copy.write_row(row)
+        with connection.cursor() as cursor, cursor.copy(statement) as copy:
+            for row in rows:
+                copy.write_row(row)
         return len(rows)
 
     def write_surface_points(
@@ -194,11 +241,10 @@ class TimescaleWriter:
             "rms_error",
             "arbitrage_free",
         )
-        statement = f"COPY volatility_surfaces ({', '.join(columns)}) FROM STDIN"
-        with connection.cursor() as cursor:
-            with cursor.copy(statement) as copy:
-                for row in rows:
-                    copy.write_row(row)
+        statement = _copy_statement("volatility_surfaces", columns)
+        with connection.cursor() as cursor, cursor.copy(statement) as copy:
+            for row in rows:
+                copy.write_row(row)
         return len(rows)
 
     def write_portfolio_risk(self, connection: Any, row: tuple[Any, ...]) -> int:
@@ -222,14 +268,7 @@ class TimescaleWriter:
             "gross_notional",
             "net_notional",
         )
-        statement = (
-            f"INSERT INTO portfolio_risk ({', '.join(columns)}) "
-            f"VALUES ({', '.join(['%s'] * len(columns))}) "
-            "ON CONFLICT (portfolio_id, as_of) DO UPDATE SET "
-            "delta = EXCLUDED.delta, gamma = EXCLUDED.gamma, vega = EXCLUDED.vega, "
-            "theta = EXCLUDED.theta, rho = EXCLUDED.rho, "
-            "gross_notional = EXCLUDED.gross_notional, net_notional = EXCLUDED.net_notional"
-        )
+        statement = _insert_statement("portfolio_risk", columns)
         with connection.cursor() as cursor:
             cursor.execute(statement, row)
         return 1

@@ -1,0 +1,27 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# VolPulse C++ formatting.
+#
+# Based on Google style, with a 100 column limit and two-space indentation,
+# which is what the existing sources use.
+#
+#   clang-format -i $(find libs/cpp-core services/ingestion-cpp -name '*.cpp' -o -name '*.h')
+# ─────────────────────────────────────────────────────────────────────────────
+BasedOnStyle: Google
+
+ColumnLimit: 100
+IndentWidth: 2
+ContinuationIndentWidth: 2
+AccessModifierOffset: -1
+
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
+AlwaysBreakTemplateDeclarations: Yes
+
+DerivePointerAlignment: false
+PointerAlignment: Left
+SpaceAfterTemplateKeyword: true
+
+IncludeBlocks: Preserve
+SortIncludes: CaseSensitive

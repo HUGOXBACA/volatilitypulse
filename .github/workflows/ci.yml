@@ -65,22 +65,22 @@ jobs:
 
       - name: Install the workspace
         run: |
-          poetry -C pyproject.toml install --no-interaction
+          poetry -C . install --no-interaction
           poetry -C libs/py-core install --no-interaction
           poetry -C services/analytics-py install --no-interaction
 
       - name: Ruff lint
-        run: poetry -C pyproject.toml run ruff check libs/py-core services/analytics-py tests
+        run: poetry -C . run ruff check libs/py-core services/analytics-py tests
 
       - name: Ruff format
-        run: poetry -C pyproject.toml run ruff format --check libs/py-core services/analytics-py tests
+        run: poetry -C . run ruff format --check libs/py-core services/analytics-py tests
 
       - name: Mypy (strict)
-        run: poetry -C pyproject.toml run mypy --strict libs/py-core/src services/analytics-py/src
+        run: poetry -C . run mypy --strict libs/py-core/src services/analytics-py/src
 
       - name: Pytest
         run: |
-          poetry -C pyproject.toml run pytest \
+          poetry -C . run pytest \
             libs/py-core/tests services/analytics-py/tests tests -v \
             --cov=libs/py-core/src --cov=services/analytics-py/src \
             --cov-report=xml --cov-report=term

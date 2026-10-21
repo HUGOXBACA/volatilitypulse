@@ -32,8 +32,7 @@ std::span<const std::byte> encode_quote(const Quote& quote, QuoteRecord& out) no
   copy_field(out.contract_id, quote.contract_id);
   copy_field(out.underlying_symbol, quote.underlying_symbol);
 
-  return std::span<const std::byte>(
-      reinterpret_cast<const std::byte*>(&out), sizeof(QuoteRecord));
+  return std::span<const std::byte>(reinterpret_cast<const std::byte*>(&out), sizeof(QuoteRecord));
 }
 
 bool decode_quote(std::span<const std::byte> bytes, Quote& out) noexcept {
@@ -56,12 +55,12 @@ bool decode_quote(std::span<const std::byte> bytes, Quote& out) noexcept {
   out.implied_volatility = record.implied_volatility;
 
   const auto* id = std::memchr(record.contract_id, '\0', kMaxContractIdLength);
-  out.contract_id.assign(id != nullptr ? record.contract_id : record.contract_id + kMaxContractIdLength);
+  out.contract_id.assign(id != nullptr ? record.contract_id
+                                       : record.contract_id + kMaxContractIdLength);
 
-  const auto* symbol =
-      std::memchr(record.underlying_symbol, '\0', kMaxSymbolLength);
-  out.underlying_symbol.assign(
-      symbol != nullptr ? record.underlying_symbol : record.underlying_symbol + kMaxSymbolLength);
+  const auto* symbol = std::memchr(record.underlying_symbol, '\0', kMaxSymbolLength);
+  out.underlying_symbol.assign(symbol != nullptr ? record.underlying_symbol
+                                                 : record.underlying_symbol + kMaxSymbolLength);
 
   return true;
 }

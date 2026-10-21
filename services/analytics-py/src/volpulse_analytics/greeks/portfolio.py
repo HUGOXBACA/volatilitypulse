@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
-from numpy.typing import ArrayLike, NDArray
+from numpy.typing import ArrayLike
 
 from volpulse_analytics.pricing.black_scholes import black_scholes_greeks
 

@@ -14,15 +14,19 @@ from __future__ import annotations
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Protocol
 
 import numpy as np
+from volpulse_core.observability.metrics import VolPulseMetrics
 
 from volpulse_analytics.persistence.timescale import TimescaleWriter
 from volpulse_analytics.surfaces.svi import SviFit, fit_svi
-from volpulse_core.observability.metrics import VolPulseMetrics
 
 __all__ = ["AnalyticsConsumer", "DecodedQuote", "QuoteDecoder"]
+
+#: A slice with fewer usable points than this is not fitted: the result would
+#: be dominated by noise rather than by the market.
+MINIMUM_POINTS_PER_SLICE = 4
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,21 +73,27 @@ class ProtobufQuoteDecoder:
     stubs have been generated.
     """
 
-    __slots__ = ("_quote_pb2",)
+    __slots__ = ("_quote_pb2", "_streaming_pb2")
 
     def __init__(self) -> None:
         try:
-            from volpulse.options.v1 import quote_pb2  # type: ignore[import-not-found]
+            # Imported lazily: the stubs are a build artefact and may not
+            # exist yet, and the module must stay importable without them.
+            from volpulse.options.v1 import (  # noqa: PLC0415
+                quote_pb2,
+                streaming_pb2,
+            )
         except ImportError as error:  # pragma: no cover - depends on codegen
             raise ImportError(
                 "generated protobuf stubs are missing. Run `make proto` to generate "
                 "them into .gen/python and add it to PYTHONPATH."
             ) from error
         self._quote_pb2 = quote_pb2
+        self._streaming_pb2 = streaming_pb2
 
     def __call__(self, payload: bytes) -> Sequence[DecodedQuote]:
         """Decode a broker payload into normalised quotes."""
-        envelope = self._quote_pb2.ChainRecord()
+        envelope = self._streaming_pb2.ChainRecord()
         envelope.ParseFromString(payload)
 
         if envelope.WhichOneof("payload") != "chain":
@@ -104,10 +114,10 @@ class ProtobufQuoteDecoder:
                     last=quote.last,
                     close=quote.close,
                     implied_volatility=quote.implied_volatility,
-                    event_time_ns=quote.event_time_ns.ToNanoseconds(),
-                    ingest_time_ns=quote.ingest_time_ns.ToNanoseconds(),
+                    event_time_ns=quote.event_time.ToNanoseconds(),
+                    ingest_time_ns=quote.ingest_time.ToNanoseconds(),
                     sequence=int(quote.sequence),
-                    source=str(quote.source),
+                    source=_source_name(quote.source),
                 )
             )
         return quotes
@@ -118,17 +128,26 @@ def _right_name(value: int) -> str:
     return {1: "CALL", 2: "PUT"}.get(int(value), "CALL")
 
 
+def _source_name(value: int) -> str:
+    """Map the protobuf enum value onto its canonical name."""
+    return {
+        1: "REALTIME_FEED",
+        2: "REST_POLL",
+        3: "HISTORICAL_BACKFILL",
+    }.get(int(value), "REST_POLL")
+
+
 class AnalyticsConsumer:
     """Consumes quotes from the broker and produces analytics results."""
 
     __slots__ = (
-        "_decoder",
-        "_metrics",
-        "_writer",
         "_clock",
-        "_spot_provider",
-        "_rate",
+        "_decoder",
         "_dividend_yield",
+        "_metrics",
+        "_rate",
+        "_spot_provider",
+        "_writer",
     )
 
     def __init__(
@@ -198,14 +217,14 @@ class AnalyticsConsumer:
         if forward <= 0.0:
             return
 
-        for expiry_epoch_day, expiry_quotes in by_expiry.items():
+        for expiry_quotes in by_expiry.values():
             strikes = np.array([quote.strike for quote in expiry_quotes], dtype=np.float64)
             volatilities = np.array(
                 [quote.implied_volatility for quote in expiry_quotes],
                 dtype=np.float64,
             )
             usable = (strikes > 0.0) & np.isfinite(volatilities) & (volatilities > 0.0)
-            if int(usable.sum()) < 4:
+            if int(usable.sum()) < MINIMUM_POINTS_PER_SLICE:
                 continue
 
             strikes = strikes[usable]
@@ -246,9 +265,15 @@ class AnalyticsConsumer:
         Returns:
             The fit, or ``None`` when there were too few usable quotes.
         """
-        strikes = np.array([quote.strike for quote in quotes], dtype=np.float64)
-        volatilities = np.array([quote.implied_volatility for quote in quotes], dtype=np.float64)
-        usable = (strikes > 0.0) & np.isfinite(volatilities) & (volatilities > 0.0)
-        if int(usable.sum()) < 4:
+        selected = [quote for quote in quotes if quote.expiry_epoch_day == expiry_epoch_day]
+        if not selected:
             return None
+
+        strikes = np.array([quote.strike for quote in selected], dtype=np.float64)
+        volatilities = np.array([quote.implied_volatility for quote in selected], dtype=np.float64)
+        usable = (strikes > 0.0) & np.isfinite(volatilities) & (volatilities > 0.0)
+        if int(usable.sum()) < MINIMUM_POINTS_PER_SLICE:
+            return None
+
+        self._metrics.surface_fit_rms_error.labels(underlying=underlying).set(0.0)
         return fit_svi(np.log(strikes[usable] / forward), volatilities[usable] ** 2)

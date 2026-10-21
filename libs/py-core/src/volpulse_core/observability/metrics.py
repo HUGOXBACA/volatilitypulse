@@ -19,18 +19,18 @@ class VolPulseMetrics:
     """The metric set exported by the VolPulse services."""
 
     __slots__ = (
-        "registry",
-        "quotes_consumed",
-        "quotes_dropped",
         "consumer_lag",
         "end_to_end_latency",
-        "upstream_request_duration",
-        "upstream_pacing_delay",
+        "greek_calculations",
+        "persistence_write_duration",
+        "quotes_consumed",
+        "quotes_dropped",
+        "registry",
+        "surface_arbitrage_violations",
         "surface_fit_duration",
         "surface_fit_rms_error",
-        "surface_arbitrage_violations",
-        "persistence_write_duration",
-        "greek_calculations",
+        "upstream_pacing_delay",
+        "upstream_request_duration",
     )
 
     def __init__(self, registry: CollectorRegistry | None = None) -> None:

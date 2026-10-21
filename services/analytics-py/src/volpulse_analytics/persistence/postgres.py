@@ -11,8 +11,9 @@ state happen in one transaction.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any
 
 __all__ = ["PostgresWriter", "postgres_ddl"]
 
@@ -58,7 +59,8 @@ postgres_ddl: tuple[str, ...] = (
         emitted_at     timestamptz NOT NULL DEFAULT now()
     )
     """,
-    "CREATE INDEX IF NOT EXISTS emitted_signals_lookup ON emitted_signals (contract_id, kind, emitted_at)",
+    "CREATE INDEX IF NOT EXISTS emitted_signals_lookup "
+    "ON emitted_signals (contract_id, kind, emitted_at)",
 )
 
 
@@ -105,7 +107,7 @@ class PostgresWriter:
         Raises:
             psycopg.Error: The database rejected the connection or the DDL.
         """
-        import psycopg
+        import psycopg  # noqa: PLC0415  - imported lazily: psycopg is only needed to connect
 
         connection = psycopg.connect(
             host=self._connection.host,

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
+import dataclasses
 
+import pytest
 from volpulse_core.models.chain import OptionChainSnapshot
 from volpulse_core.models.quote import OptionQuote, OptionRight, QuoteSource
 
@@ -65,7 +66,7 @@ def test_non_positive_strike_is_rejected() -> None:
 def test_quote_is_immutable() -> None:
     """Quotes are frozen: they are shared between components."""
     quote = _quote()
-    with pytest.raises(Exception):
+    with pytest.raises(dataclasses.FrozenInstanceError):
         quote.strike = 1.0  # type: ignore[misc]
 
 

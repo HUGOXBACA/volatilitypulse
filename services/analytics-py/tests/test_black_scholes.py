@@ -32,8 +32,12 @@ def test_put_call_parity(
     volatility: float,
 ) -> None:
     """The call price minus the put price must equal the forward carry."""
-    call = float(black_scholes_price(spot, strike, maturity, rate, dividend, volatility, is_call=True))
-    put = float(black_scholes_price(spot, strike, maturity, rate, dividend, volatility, is_call=False))
+    call = float(
+        black_scholes_price(spot, strike, maturity, rate, dividend, volatility, is_call=True)
+    )
+    put = float(
+        black_scholes_price(spot, strike, maturity, rate, dividend, volatility, is_call=False)
+    )
 
     expected = spot * np.exp(-dividend * maturity) - strike * np.exp(-rate * maturity)
     assert call - put == pytest.approx(expected, rel=1e-8, abs=1e-8)
@@ -115,7 +119,9 @@ def test_impossible_prices_return_nan() -> None:
 def test_expired_option_is_worth_its_intrinsic_value() -> None:
     """At expiry the option is a simple intrinsic value payoff."""
     assert float(black_scholes_price(120.0, 100.0, 0.0, 0.03, 0.0, 0.25)) == pytest.approx(20.0)
-    assert float(black_scholes_price(80.0, 100.0, 0.0, 0.03, 0.0, 0.25, is_call=False)) == pytest.approx(20.0)
+    assert float(
+        black_scholes_price(80.0, 100.0, 0.0, 0.03, 0.0, 0.25, is_call=False)
+    ) == pytest.approx(20.0)
 
 
 def test_call_delta_is_bounded() -> None:

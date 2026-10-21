@@ -17,10 +17,17 @@ error so the caller can decide whether the fit is good enough to trade on.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import pairwise
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from scipy.optimize import least_squares
+
+#: Tolerance used when comparing total variance across expiries.
+CALENDAR_TOLERANCE = 1e-12
+
+#: A calendar check needs at least two expiries to compare.
+MINIMUM_EXPIRIES_FOR_CALENDAR_CHECK = 2
 
 __all__ = [
     "SviFit",
@@ -216,10 +223,10 @@ def check_calendar_arbitrage(
         True when no calendar arbitrage was detected.
     """
     expiries = sorted(surfaces)
-    if len(expiries) < 2:
+    if len(expiries) < MINIMUM_EXPIRIES_FOR_CALENDAR_CHECK:
         return True
 
-    for earlier, later in zip(expiries, expiries[1:], strict=False):
+    for earlier, later in pairwise(expiries):
         k_early, w_early = surfaces[earlier]
         k_late, w_late = surfaces[later]
         if k_early.size == 0 or k_late.size == 0:
@@ -233,7 +240,7 @@ def check_calendar_arbitrage(
 
         early_interp = np.interp(np.linspace(low, high, 101), k_early, w_early)
         late_interp = np.interp(np.linspace(low, high, 101), k_late, w_late)
-        if np.any(late_interp < early_interp - 1e-12):
+        if np.any(late_interp < early_interp - CALENDAR_TOLERANCE):
             return False
 
     return True

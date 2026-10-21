@@ -35,6 +35,7 @@ out/
 CMakeUserPresets.json
 compile_commands.json
 .cache/
+.vcpkg/
 *.o
 *.a
 *.so
