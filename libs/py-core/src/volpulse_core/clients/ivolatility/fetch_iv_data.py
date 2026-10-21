@@ -28,7 +28,11 @@ from typing import Any
 import httpx
 import polars as pl
 
-from volpulse_core.clients.ivolatility.pagination import Page, iter_pages, poll_for_download
+from volpulse_core.clients.ivolatility.pagination import (
+    Page,
+    iter_pages,
+    poll_for_download,
+)
 from volpulse_core.clients.ivolatility.rate_limit import RateLimiter
 from volpulse_core.config import Settings, load_settings
 
@@ -138,7 +142,9 @@ class HistoricalFetcher:
             )
             page_records = page_payload.get("records") or []
             has_more = bool(page_payload.get("hasMore"))
-            return Page(records=tuple(page_records), next_page=index + 1 if has_more else None)
+            return Page(
+                records=tuple(page_records), next_page=index + 1 if has_more else None
+            )
 
         async for page_records in iter_pages(fetch_page):
             records.extend(page_records)
@@ -173,7 +179,9 @@ class HistoricalFetcher:
         return path
 
 
-async def _run(settings: Settings, output_dir: Path, symbols: list[str], days: int) -> int:
+async def _run(
+    settings: Settings, output_dir: Path, symbols: list[str], days: int
+) -> int:
     """Fetch the requested windows and write them to the output directory."""
     end = datetime.now(UTC).date()
     start = end - timedelta(days=days)
@@ -190,7 +198,9 @@ async def _run(settings: Settings, output_dir: Path, symbols: list[str], days: i
             frame = pl.DataFrame(records) if records else pl.DataFrame()
             target = output_dir / f"{symbol}_{start}_{end}.parquet"
             frame.write_parquet(target, compression="zstd")
-            print(f"fetched {len(records)} records for {symbol} -> {target}", flush=True)
+            print(
+                f"fetched {len(records)} records for {symbol} -> {target}", flush=True
+            )
 
     return 0
 
@@ -208,8 +218,12 @@ def main(argv: list[str] | None = None) -> int:
         prog="fetch-iv-data",
         description="Fetch historical option chains from IVolatility.",
     )
-    parser.add_argument("--symbols", required=True, help="Comma separated underlying symbols.")
-    parser.add_argument("--days", type=int, default=30, help="Length of the window in days.")
+    parser.add_argument(
+        "--symbols", required=True, help="Comma separated underlying symbols."
+    )
+    parser.add_argument(
+        "--days", type=int, default=30, help="Length of the window in days."
+    )
     parser.add_argument(
         "--output-dir",
         type=Path,

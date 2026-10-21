@@ -24,6 +24,7 @@ dependencies = [
     # ── Configuration ───────────────────────────────────────────────────────
     "python-dotenv>=1.0",
     "pyyaml>=6.0",
+    "pydantic-settings>=2.0",
 ]
 
 [project.optional-dependencies]
@@ -32,6 +33,9 @@ accelerate = [
     "numba>=0.63",
     "jax>=0.12",
 ]
+
+[project.scripts]
+volpulse-fetch = "volpulse_core.clients.ivolatility.cli:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -46,3 +50,24 @@ pytest-asyncio = ">=0.24"
 hypothesis = ">=6.112"
 ruff = ">=0.7"
 mypy = ">=1.13"
+
+[tool.ruff.lint.per-file-ignores]
+"libs/py-core/src/volpulse_core/clients/ivolatility/auth.py" = ["S105", "S106"]
+"libs/py-core/src/volpulse_core/clients/ivolatility/client.py" = [
+    "PLR2004",
+    "ARG002",
+    "RET504",
+]
+"libs/py-core/src/volpulse_core/clients/ivolatility/cli.py" = [
+    "PLR2004",
+    "PLR0915",
+    "PLR0912",
+    "T201",
+    "ASYNC230",
+    "PTH123",
+]
+"libs/py-core/src/volpulse_core/clients/ivolatility/equity.py" = ["PLR2004"]
+"libs/py-core/src/volpulse_core/clients/ivolatility/futures.py" = ["PLR2004"]
+"libs/py-core/src/volpulse_core/clients/ivolatility/models.py" = ["N815"]
+"libs/py-core/src/volpulse_core/clients/ivolatility/endpoints.py" = ["PLR2004"]
+"libs/py-core/tests/test_ivolatility_client.py" = ["S105", "PLR2004"]
