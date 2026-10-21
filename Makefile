@@ -228,6 +228,7 @@ demo: ## Run the offline end-to-end demo (no Docker, no API key)
 
 .PHONY: bench
 bench: ## Run every benchmark (C++ and Python)
+	@if [ ! -f build/CMakeCache.txt ]; then cmake --preset dev >/dev/null 2>&1; fi
 	@cmake --build --preset dev --target volpulse_benchmarks >/dev/null 2>&1 || true
 	@echo "=== C++ benchmarks ==="
 	@ctest --preset dev -R cpp.benchmarks --output-on-failure
