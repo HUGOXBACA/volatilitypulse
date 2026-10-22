@@ -10,7 +10,13 @@ them by name. Renaming one is a breaking change for the on-call rotation.
 
 from __future__ import annotations
 
-from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram, generate_latest
+from prometheus_client import (
+    CollectorRegistry,
+    Counter,
+    Gauge,
+    Histogram,
+    generate_latest,
+)
 
 __all__ = ["VolPulseMetrics"]
 

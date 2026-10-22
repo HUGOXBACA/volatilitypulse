@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+
 from volpulse_core.latency import LatencyCollector, Sample, analyze, detect_outliers
 
 __all__ = [
