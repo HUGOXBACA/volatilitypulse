@@ -3,7 +3,7 @@
   "name": "volpulse-cpp",
   "version": "0.1.0",
   "description": "C++ dependencies for the VolPulse ingestion engine",
-  "builtin-baseline": "857036234d15fbed8f30fed66e898d7725446c0c",
+  "builtin-baseline": "9eec002df1cd109f8f104cd966a763daf9751489",
   "dependencies": [
     "protobuf",
     "grpc",
