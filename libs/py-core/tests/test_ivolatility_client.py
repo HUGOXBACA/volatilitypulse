@@ -7,13 +7,9 @@ No network calls are made - all data comes from local files.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import polars as pl
-import pytest
-
-from volpulse_core.clients.ivolatility import IVolatilityClient, IVolatilitySettings
 
 TEST_DATA_DIR = Path(__file__).parent / "data"
 
