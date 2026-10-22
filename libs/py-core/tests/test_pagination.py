@@ -5,7 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from volpulse_core.clients.ivolatility.pagination import Page, iter_pages, poll_for_download
+
+from volpulse_core.clients.ivolatility.pagination import (
+    Page,
+    iter_pages,
+    poll_for_download,
+)
 
 
 @pytest.mark.asyncio
@@ -76,7 +81,7 @@ async def test_iter_pages_walks_every_page() -> None:
         requested.append(index)
         return pages[index]
 
-    collected: list[tuple[Any, ...]] = []
+    collected: list[Any] = []
     async for records in iter_pages(fetch):
         collected.extend(records)
 
@@ -91,7 +96,7 @@ async def test_iter_pages_respects_max_pages() -> None:
     async def fetch(index: int) -> Page:
         return Page(records=({"id": index},), next_page=index + 1)
 
-    collected: list[tuple[Any, ...]] = []
+    collected: list[Any] = []
     async for records in iter_pages(fetch, max_pages=2):
         collected.extend(records)
 
@@ -109,7 +114,7 @@ async def test_iter_pages_handles_an_empty_first_page() -> None:
     async def fetch(index: int) -> Page:
         return pages[index]
 
-    collected: list[tuple[Any, ...]] = []
+    collected: list[Any] = []
     async for records in iter_pages(fetch):
         collected.extend(records)
 
