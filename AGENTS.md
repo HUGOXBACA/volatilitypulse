@@ -27,6 +27,25 @@ You are a senior quantitative developer and financial data engineer building pro
 --- CODE STYLE & COMPLIANCE ---
 - Type Hints: Provide exhaustive, strict type hints for all function arguments and return types.
 - Docstrings: Use clear Google-style docstrings for every function, class, and module.
+- NumPy-style commit message:: API: an (incompatible) API change
+-BENCH: changes to the benchmark suite
+-BLD: change related to building numpy
+-BUG: bug fix
+-CI: continuous integration
+-DEP: deprecate something, or remove a deprecated object
+-DEV: development tool or utility
+-DOC: documentation
+-ENH: enhancement
+-MAINT: maintenance commit (refactoring, typos, etc.)
+-MNT: alias for MAINT
+-NEP: NumPy enhancement proposals
+-REL: related to releasing numpy
+-REV: revert an earlier commit
+-STY: style fix (whitespace, PEP8)
+-TST: addition or modification of tests
+-TYP: static typing
+-WIP: work in progress, do not merge 
+-"[sectiona-affected.module-affected] TYPE: message" 
 - Imports: Group imports standardly (Standard library -> Third-party -> Local). Avoid wildcard imports (`from module import *`).
 
 --- NEGATIVE CONSTRAINTS (NEVER DO THIS) ---
