@@ -30,7 +30,7 @@ jobs:
     name: contracts (protobuf)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install buf
         uses: bufbuild/buf-setup-action@v1
@@ -54,7 +54,7 @@ jobs:
     name: python (lint, types, tests)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v5
         with:
@@ -97,7 +97,7 @@ jobs:
     name: cpp (build, tests, sanitizers)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install the toolchain
         run: |
@@ -129,7 +129,7 @@ jobs:
     name: infrastructure (compose, sql, yaml)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Validate the compose file
         run: docker compose -f docker-compose.yml config --quiet
