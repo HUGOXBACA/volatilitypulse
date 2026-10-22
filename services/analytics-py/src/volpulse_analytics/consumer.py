@@ -207,6 +207,25 @@ class AnalyticsConsumer:
         self._fit_surfaces(underlying, quotes)
         return len(quotes)
 
+    def process_quote(self, quote: DecodedQuote) -> int:
+        """Process a single decoded quote.
+
+        Args:
+            quote: A decoded quote.
+
+        Returns:
+            1 if the quote was processed, 0 otherwise.
+        """
+        underlying = quote.underlying_symbol
+        now = self._clock()
+
+        self._metrics.quotes_consumed.labels(underlying=underlying).inc()
+        latency = max(0.0, now - (quote.event_time_ns / 1e9))
+        self._metrics.end_to_end_latency.labels(underlying=underlying).observe(latency)
+
+        self._fit_surfaces(underlying, [quote])
+        return 1
+
     def _fit_surfaces(self, underlying: str, quotes: Sequence[DecodedQuote]) -> None:
         """Fit one volatility surface per expiry and record the result."""
         by_expiry: dict[int, list[DecodedQuote]] = {}

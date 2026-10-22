@@ -19,8 +19,9 @@ dependencies = [
     "pyarrow>=17.0",
     "pandera[pandas]>=0.24",
     "scipy>=1.14",
+    # ── Serialization / transport ──────────────────────────────────────────
+    "confluent-kafka>=2.6",
     # ── Observability ───────────────────────────────────────────────────────
-    "prometheus-client>=0.21",
     # ── Configuration ───────────────────────────────────────────────────────
     "python-dotenv>=1.0",
     "pyyaml>=6.0",

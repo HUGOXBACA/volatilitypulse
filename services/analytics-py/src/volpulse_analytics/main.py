@@ -18,6 +18,7 @@ import sys
 import threading
 from types import FrameType
 
+from volpulse_core.clients.kafka import KafkaConfig, KafkaConsumer
 from volpulse_core.config import Settings, load_settings
 from volpulse_core.observability.metrics import VolPulseMetrics
 
@@ -115,41 +116,30 @@ def main(argv: list[str] | None = None) -> int:
 def _consume_forever(
     settings: Settings, consumer: AnalyticsConsumer, stop: threading.Event
 ) -> None:
-    """Consume from the broker until the stop event is set."""
-    # Imported lazily: the broker client is only needed once the process is
-    # actually configured and running.
-    from confluent_kafka import Consumer, KafkaError  # noqa: PLC0415
+    """Consume from the broker until the stop event is set.
 
-    kafka = Consumer(
-        {
-            "bootstrap.servers": settings.kafka_bootstrap_servers,
-            "group.id": settings.kafka_consumer_group,
-            "auto.offset.reset": "earliest",
-            "enable.auto.commit": False,
-            "session.timeout.ms": 45000,
-        }
+    Uses the VolPulse Kafka consumer wrapper which decodes protobuf envelopes
+    into :class:`~volpulse_core.models.quote.OptionQuote` objects.
+    """
+    kafka_config = KafkaConfig(
+        bootstrap_servers=settings.kafka_bootstrap_servers,
+        client_id="volpulse-analytics",
     )
-    kafka.subscribe([settings.kafka_topic_options, settings.kafka_topic_quotes])
+    kafka_consumer = KafkaConsumer(
+        config=kafka_config,
+        topics=[settings.kafka_topic_options, settings.kafka_topic_quotes],
+        group_id=settings.kafka_consumer_group,
+    )
 
     try:
         while not stop.is_set():
-            message = kafka.poll(timeout=1.0)
-            if message is None:
-                continue
-            error = message.error()
-            if error is not None:
-                if error.code() == KafkaError._PARTITION_EOF:
-                    continue
-                print(f"volpulse-analytics: broker error: {error}", file=sys.stderr)
-                continue
-
-            payload = message.value()
-            if payload is None:
-                continue
-            consumer.process(payload)
-            kafka.commit(message=message, asynchronous=False)
+            quotes = kafka_consumer.poll(timeout=1.0)
+            if quotes:
+                for quote in quotes:
+                    consumer.process_quote(quote)
+                kafka_consumer.commit()
     finally:
-        kafka.close()
+        kafka_consumer.close()
 
 
 if __name__ == "__main__":

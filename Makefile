@@ -173,29 +173,79 @@ format: ## Auto-format all sources
 # Local infrastructure
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Run
+# ─────────────────────────────────────────────────────────────────────────────
+
 .PHONY: infra-up
-infra-up: ## Start the local infra stack (Kafka, Timescale, Prometheus, ...)
+infra-up: ## Start local infrastructure (Kafka, TimescaleDB, Prometheus, Grafana, InfluxDatabase)
 	$(COMPOSE) -f $(COMPOSE_FILE) up -d --wait
 
 .PHONY: infra-down
-infra-down: ## Stop the local infra stack
+infra-down: ## Stop local infrastructure
 	$(COMPOSE) -f $(COMPOSE_FILE) down
 
 .PHONY: infra-reset
-infra-reset: ## Stop the stack and destroy all local volumes
+infra-reset: ## Stop local infrastructure and destroy all local volumes
 	$(COMPOSE) -f $(COMPOSE_FILE) down -v
 
 .PHONY: infra-logs
 infra-logs: ## Tail local infra logs
 	$(COMPOSE) -f $(COMPOSE_FILE) logs -f --tail=100
 
-.PHONY: topics
-topics: ## Create Kafka topics with the configured retention policy
-	@bash infra/kafka/topics.sh
+.PHONY: kafka-topics
+kafka-topics: ## Create Kafka topics for VolPulse
+	docker exec -t volpulse-kafka kafka-topics.sh --create \
+		--if-not-exists \
+		--topic options.chain.streaming \
+		--partitions 3 \
+		--replication-factor 1 \
+		--bootstrap-server localhost:9092 || true
+	docker exec -t volpulse-kafka kafka-topics.sh --create \
+		--if-not-exists \
+		--topic options.chain.deadletter \
+		--partitions 3 \
+		--replication-factor 1 \
+		--bootstrap-server localhost:9092 || true
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Run
-# ─────────────────────────────────────────────────────────────────────────────
+.PHONY: kafka-topics-delete
+kafka-topics-delete: ## Delete Kafka topics
+	docker exec -t volpulse-kafka kafka-topics.sh --delete \
+		--topic options.chain.streaming \
+		--bootstrap-server localhost:9092 || true
+	docker exec -t volpulse-kafka kafka-topics.sh --delete \
+		--topic options.chain.deadletter \
+		--bootstrap-server localhost:9092 || true
+
+.PHONY: kafka-logs
+kafka-logs: ## Tail Kafka logs
+	docker logs -f volpulse-kafka
+
+.PHONY: kafka-console-producer
+kafka-console-producer: ## Produce test messages to Kafka (topic=options.chain.streaming)
+	docker exec -it volpulse-kafka kafka-console-producer.sh \
+		--topic options.chain.streaming \
+		--bootstrap-server localhost:9092
+
+.PHONY: kafka-console-consumer
+kafka-console-consumer: ## Consume messages from Kafka (topic=options.chain.streaming)
+	docker exec -it volpulse-kafka kafka-console-consumer.sh \
+		--topic options.chain.streaming \
+		--from-beginning \
+		--bootstrap-server localhost:9092
+
+.PHONY: run-ingestion
+run-ingestion: ## Run the C++ ingestion engine
+	$(BUILD_DIR)/bin/volpulse-ingestion --config config/ingestion.yaml
+
+.PHONY: run-analytics
+run-analytics: ## Run the Python quant analytics engine
+	poetry -C $(PY_SERVICE) run python -m volpulse_analytics --config config/analytics.yaml
+
+.PHONY: run-stack
+run-stack: ## Run ingestion + analytics in the foreground
+	@bash tools/scripts/run_stack.sh
+
 
 .PHONY: run-ingestion
 run-ingestion: ## Run the C++ ingestion engine
@@ -221,31 +271,7 @@ clean: ## Remove build artefacts and caches
 
 .PHONY: clean-all
 clean-all: clean infra-reset ## Remove build artefacts, caches and local volumes
-
-.PHONY: demo
-demo: ## Run the offline end-to-end demo (no Docker, no API key)
-	@bash tools/scripts/demo.sh
-
-.PHONY: bench
-bench: ## Run every benchmark (C++ and Python)
-	@if [ ! -f build/CMakeCache.txt ]; then cmake --preset dev >/dev/null 2>&1; fi
-	@cmake --build --preset dev --target volpulse_benchmarks volpulse_latency_benchmarks >/dev/null 2>&1 || true
-	@echo "=== C++ benchmarks ==="
-	@ctest --preset dev -R 'cpp.benchmarks|cpp.latency_benchmarks' --output-on-failure
-	@echo
-	@echo "=== Python benchmarks ==="
-	@PYTHONPATH="$(CURDIR)/.gen/python:$(CURDIR)/$(PY_LIB)/src:$(CURDIR)/$(PY_SERVICE)/src" \
-	  poetry -C $(PY_ROOT) run python services/analytics-py/tests/benchmarks/run_benchmarks.py
-
-.PHONY: inspect-log
-inspect-log: ## Inspect a binary audit log (LOG=path to override)
-	poetry -C $(PY_ROOT) run python tools/scripts/inspect_log.py \
-	  $(if $(LOG),$(LOG),var/binary-logs/options.vlog)
-
-.PHONY: seed
-seed: ## Generate a synthetic chain for the replay path
-	poetry -C $(PY_ROOT) run python tools/scripts/seed_market_data.py \
-	  --output var/replay/aapl.ndjson
+	$(COMPOSE) -f $(COMPOSE_FILE) down -v
 
 .PHONY: tree
 tree: ## Print the repository layout
