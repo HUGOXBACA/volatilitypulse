@@ -6,6 +6,7 @@ import asyncio
 import time
 
 import pytest
+
 from volpulse_core.clients.ivolatility.rate_limit import RateLimiter
 
 
