@@ -17,12 +17,12 @@ class IVolatilitySettings(BaseSettings):
     model_config = {"env_prefix": "IVOL_", "env_file": ".env", "extra": "ignore"}
 
     # ── Base URL ──────────────────────────────────────────────────────────
-    base_url: str = "https://api.ivolatility.com"
-    # The public REST host seen in the spec examples is restapi.ivolatility.com.
-    # Override with IVOL_BASE_URL if you are on a different environment.
+    base_url: str = "https://restapi.ivolatility.com"
 
     # ── Credentials ───────────────────────────────────────────────────────
-    # Either username+password or a bearer token. At least one is required.
+    # Three auth modes: API key (api_key), username+password, or bearer token.
+    # At least one is required before any call that needs authentication.
+    api_key: str | None = None
     username: str | None = None
     password: str | None = None
     token: str | None = None

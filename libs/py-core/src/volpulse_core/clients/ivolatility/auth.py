@@ -1,13 +1,11 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Authentication against the IVolatility REST API.
 #
-# Two modes are supported:
+# Three auth modes are supported:
 #
-#   1. Token mode — call ``GET /token/get`` with username+password, cache the
-#      returned bearer token, and send it as the ``token`` query parameter.
-#      Tokens expire after 30 minutes; the client refreshes automatically.
-#   2. Credential mode — send ``username`` and ``password`` directly on every
-#      request (supported by the upstream but less clean).
+#   1. API key — sent as ``api_key`` query parameter on every request
+#   2. Username/password — sent as ``username``+``password`` query parameters
+#   3. Bearer token — obtained from ``GET /token/get``, sent as ``token`` query parameter
 #
 # The auth object is passed into :class:`~volpulse_core.clients.ivolatility.client.IVolatilityClient`
 # and is responsible for signing every outgoing request.
@@ -30,7 +28,7 @@ REFRESH_BUFFER_SECONDS = 60  # refresh a minute before expiry
 
 @dataclass
 class IVolatilityAuth:
-    """Authentication state for the IVolatility client."""
+    """Authentication state for the VolPulse client."""
 
     settings: IVolatilitySettings
     _client: httpx.AsyncClient = field(repr=False)
@@ -39,10 +37,13 @@ class IVolatilityAuth:
 
     @property
     def is_authenticated(self) -> bool:
-        """True when we currently hold a valid token or credentials."""
+        """True when we currently have valid credentials."""
         if self._token is not None and self._expires_at is not None:
             return dt.datetime.now(dt.UTC) < self._expires_at
-        return bool(self.settings.username and self.settings.password)
+        return bool(
+            self.settings.api_key
+            or (self.settings.username and self.settings.password)
+        )
 
     async def get_token(self) -> str:
         """Obtain (or refresh) a bearer token from ``/token/get``.
@@ -67,10 +68,7 @@ class IVolatilityAuth:
         try:
             resp = await self._client.get(
                 TOKEN_ENDPOINT,
-                params={
-                    "username": self.settings.username,
-                    "password": self.settings.password,
-                },
+                params={"username": self.settings.username, "password": self.settings.password},
                 timeout=self.settings.timeout_seconds,
             )
             resp.raise_for_status()
@@ -92,13 +90,18 @@ class IVolatilityAuth:
     def auth_params(self) -> dict[str, str | None]:
         """Return the authentication query parameters for a request.
 
-        Token mode takes precedence; otherwise username+password are sent.
+        Priority: API key > token > username+password.
         """
+        if self.settings.api_key:
+            return {"apiKey": self.settings.api_key, "username": None, "password": None, "token": None}
+
         token = self._token
         if token is not None:
-            return {"token": token, "username": None, "password": None}
+            return {"apiKey": None, "username": None, "password": None, "token": token}
+
         return {
-            "token": None,
+            "apiKey": None,
             "username": self.settings.username,
             "password": self.settings.password,
+            "token": None,
         }
