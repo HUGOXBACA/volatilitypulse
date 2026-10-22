@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+
 from volpulse_core.latency import LatencyCollector, Sample, analyze, detect_outliers
 
 __all__ = [
@@ -46,7 +47,7 @@ def test_analyze_sane_statistics() -> None:
     assert report.best_fit is not None
     assert report.best_fit.name in {"norm", "lognorm", "expon", "weibull_min", "gamma"}
     assert 0.0 <= report.best_fit.ks_pvalue <= 1.0
-    assert report.outliers.iqr_count >= 0
+    assert report.outliers is not None and (report.outliers.iqr_count or 0) >= 0
 
 
 @pytest.mark.filterwarnings("ignore::RuntimeWarning")

@@ -207,20 +207,20 @@ def _fit_distributions(data: np.ndarray) -> list[DistributionFit]:
     for name, dist in _DISTRIBUTIONS:
         try:
             params = dist.fit(data)
-        except Exception:
+        except (ValueError, RuntimeError):
             # Some distributions fail to converge on degenerate data.
             continue
 
         # Theoretical CDF at the observed points.
         try:
             theoretical_cdf = dist.cdf(sorted_data, *params)
-        except Exception:
+        except (ValueError, RuntimeError):
             continue
 
         ks_statistic = float(np.max(np.abs(ecdf - theoretical_cdf)))
         try:
             ks_pvalue = float(stats.kstest(data, dist.name, args=params).pvalue)
-        except Exception:
+        except (ValueError, RuntimeError):
             ks_pvalue = float("nan")
 
         fits.append(

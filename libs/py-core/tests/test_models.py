@@ -5,6 +5,7 @@ from __future__ import annotations
 import dataclasses
 
 import pytest
+
 from volpulse_core.models.chain import OptionChainSnapshot
 from volpulse_core.models.quote import OptionQuote, OptionRight, QuoteSource
 
