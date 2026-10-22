@@ -7,13 +7,9 @@ No network calls are made - all data comes from local files.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import polars as pl
-import pytest
-
-from volpulse_core.clients.ivolatility import IVolatilityClient, IVolatilitySettings
 
 TEST_DATA_DIR = Path(__file__).parent / "data"
 
@@ -35,8 +31,9 @@ def test_garch_csv_has_valid_structure() -> None:
     # All vol values should be positive floats < 1.0 (IV < 100%)
     vol_col = df.columns[1]
     vols = df[vol_col].drop_nulls()
-    assert vols.min() > 0
-    assert vols.max() < 1.0
+    vols_list = [float(v) for v in vols.to_list()]
+    assert min(vols_list) > 0
+    assert max(vols_list) < 1.0
 
 
 def test_garch_csv_date_range() -> None:
@@ -45,8 +42,8 @@ def test_garch_csv_date_range() -> None:
     # First column is the date column (no header name)
     date_col = df.columns[0]
     dates = df[date_col]
-    assert dates.min() >= "2016-01-01"
-    assert dates.max() <= "2026-12-31"
+    assert str(dates.min()) >= "2016-01-01"
+    assert str(dates.max()) <= "2026-12-31"
 
 
 # ── Futures options CSV tests ────────────────────────────────────────────────
@@ -71,7 +68,7 @@ def test_futures_options_has_valid_iv() -> None:
     Some quotes may have iv=-1 meaning no valid IV, filter those out."""
     df = pl.read_csv(FUTURES_OPTS_2024)
     iv_col = df["iv"]
-    valid_iv = [v for v in iv_col.drop_nulls().to_list() if v > 0]
+    valid_iv = [float(v) for v in iv_col.drop_nulls().to_list() if v is not None and float(v) > 0]
     assert len(valid_iv) > 0
     assert min(valid_iv) > 0
     assert max(valid_iv) < 5.0  # IV < 500%
@@ -81,8 +78,9 @@ def test_futures_options_has_valid_strikes() -> None:
     """Strike prices should be positive."""
     df = pl.read_csv(FUTURES_OPTS_2024)
     strikes = df["strike"].drop_nulls()
-    assert strikes.min() > 0
-    assert strikes.max() < 10000  # Reasonable upper bound
+    strikes_list = [float(s) for s in strikes.to_list()]
+    assert min(strikes_list) > 0
+    assert max(strikes_list) < 10000  # Reasonable upper bound
 
 
 # ── NPZ data tests ───────────────────────────────────────────────────────────
