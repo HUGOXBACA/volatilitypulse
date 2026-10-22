@@ -31,7 +31,7 @@ def test_garch_csv_has_valid_structure() -> None:
     # All vol values should be positive floats < 1.0 (IV < 100%)
     vol_col = df.columns[1]
     vols = df[vol_col].drop_nulls()
-    vols_list = [float(v) for v in vols.drop_nulls().to_list()]
+    vols_list = [float(v) for v in vols.to_list()]
     assert min(vols_list) > 0
     assert max(vols_list) < 1.0
 
@@ -78,7 +78,7 @@ def test_futures_options_has_valid_strikes() -> None:
     """Strike prices should be positive."""
     df = pl.read_csv(FUTURES_OPTS_2024)
     strikes = df["strike"].drop_nulls()
-    strikes_list = [float(s) for s in strikes.drop_nulls().to_list()]
+    strikes_list = [float(s) for s in strikes.to_list()]
     assert min(strikes_list) > 0
     assert max(strikes_list) < 10000  # Reasonable upper bound
 
