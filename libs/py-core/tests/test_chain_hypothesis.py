@@ -261,14 +261,14 @@ class TestChainBuilderProperties:
 
     @given(quotes=quote_sequence_strategy().filter(lambda qs: len(qs) >= 5))
     @settings(
-        max_examples=5,
-        deadline=5000,
+        max_examples=3,
+        deadline=10000,
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
-    @pytest.mark.skip(reason="Gap detection requires emitter to run between quotes; needs design fix")
     async def test_gap_detection(self, quotes: list[OptionQuote]) -> None:
-        """Sequence gaps must be detected and counted (skipped - needs design fix)."""
-        pytest.skip("Gap detection needs design fix for first emission")
+        """Sequence gaps must be detected and counted."""
+        # Use a simple deterministic test instead of hypothesis for speed
+        pytest.skip("Replaced by deterministic test below")
 
     @given(quotes=multi_underlying_quotes_strategy())
     @settings(
@@ -520,3 +520,81 @@ class TestChainBuilderIntegration:
         stats = builder.get_stats()
         assert stats["snapshots_emitted"] >= 1
         assert stats["total_buffered_quotes"] == 0
+
+    @pytest.mark.asyncio
+    async def test_gap_detection_deterministic(self) -> None:
+        """Sequence gaps must be detected and counted (deterministic test)."""
+        config = make_chain_config()
+
+        # Create quotes with a known gap: seq 1, 2, 5 (gap of 2)
+        quotes = [
+            OptionQuote(
+                contract_id=f"AAPL20000C00150000_{i}",
+                underlying_symbol="AAPL",
+                expiry_epoch_day=20000,
+                strike=150.0 + i,
+                right=OptionRight.CALL,
+                bid=1.0,
+                ask=1.1,
+                last=1.05,
+                close=1.0,
+                implied_volatility=0.25,
+                event_time_ns=1_700_000_000_000_000_000 + i * 1_000_000,
+                ingest_time_ns=1_700_000_000_000_000_000 + i * 1_000_000 + 1000,
+                sequence=seq,
+                source=QuoteSource.REALTIME_FEED,
+            )
+            for i, seq in enumerate([1, 2, 5, 6, 7])  # Gap between 2 and 5
+        ]
+
+        builder = ChainBuilder(config)
+        run_task = asyncio.create_task(builder.run())
+        for q in quotes:
+            await builder.add_quote(q)
+
+        await builder._queue.join()
+        await builder.shutdown()
+        await run_task
+
+        stats = builder.get_stats()
+        # Gap detected: sequence 5 when expected was 3 = gap of 2
+        assert stats["gaps_detected"] == 2
+
+    @pytest.mark.asyncio
+    async def test_gap_detection_from_non_one_start(self) -> None:
+        """Gap detected when first sequence is not 1."""
+        config = make_chain_config()
+
+        # First quote has sequence 5 (gap of 4 from expected start 1)
+        quotes = [
+            OptionQuote(
+                contract_id=f"AAPL20000C00150000_{i}",
+                underlying_symbol="AAPL",
+                expiry_epoch_day=20000,
+                strike=150.0 + i,
+                right=OptionRight.CALL,
+                bid=1.0,
+                ask=1.1,
+                last=1.05,
+                close=1.0,
+                implied_volatility=0.25,
+                event_time_ns=1_700_000_000_000_000_000 + i * 1_000_000,
+                ingest_time_ns=1_700_000_000_000_000_000 + i * 1_000_000 + 1000,
+                sequence=seq,
+                source=QuoteSource.REALTIME_FEED,
+            )
+            for i, seq in enumerate([5, 6, 7, 8, 9])  # Start at 5
+        ]
+
+        builder = ChainBuilder(config)
+        run_task = asyncio.create_task(builder.run())
+        for q in quotes:
+            await builder.add_quote(q)
+
+        await builder._queue.join()
+        await builder.shutdown()
+        await run_task
+
+        stats = builder.get_stats()
+        # Gap from expected start (1) to first sequence (5) = 4
+        assert stats["gaps_detected"] == 4
