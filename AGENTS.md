@@ -46,7 +46,12 @@ You are a senior quantitative developer and financial data engineer building pro
 -TYP: static typing
 -WIP: work in progress, do not merge 
 -"[sectiona-affected.module-affected] TYPE: message" 
-- Imports: Group imports standardly (Standard library -> Third-party -> Local). Avoid wildcard imports (`from module import *`).
+-Use standard prefixes: feature/, bugfix/, hotfix/, release/, chore/, refactor/, docs/, test/, ci/
+-Keep branch names under 60-80 characters
+-Use only lowercase letters, numbers, hyphens, and forward slashes
+-No consecutive dots or ending with .lock
+-No developer name in branch name (use git author metadata)
+-Delete branches after merging- Imports: Group imports standardly (Standard library -> Third-party -> Local). Avoid wildcard imports (`from module import *`).
 
 --- NEGATIVE CONSTRAINTS (NEVER DO THIS) ---
 1. NEVER hardcode API keys or secrets. Always use `os.environ.get('IVOL_API_KEY')` with `.env` loading.

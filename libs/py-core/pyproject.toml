@@ -21,6 +21,7 @@ dependencies = [
     "scipy>=1.14",
     # ── Serialization / transport ──────────────────────────────────────────
     "confluent-kafka>=2.6",
+    "websockets>=12.0",
     # ── Observability ───────────────────────────────────────────────────────
     # ── Configuration ───────────────────────────────────────────────────────
     "python-dotenv>=1.0",
@@ -37,6 +38,7 @@ accelerate = [
 
 [project.scripts]
 volpulse-fetch = "volpulse_core.clients.ivolatility.cli:main"
+volpulse-ws-ingest = "volpulse_core.clients.websocket.cli:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
