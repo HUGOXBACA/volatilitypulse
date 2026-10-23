@@ -104,6 +104,8 @@ class SVIFitter:
     when parameters satisfy certain constraints.
     """
 
+    __slots__ = ("_last_params",)
+
     def __init__(self) -> None:
         self._last_params: dict[str, float] | None = None
 

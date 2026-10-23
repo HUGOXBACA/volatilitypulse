@@ -90,6 +90,16 @@ class ChainBuilder:
     per partition for gap detection.
     """
 
+    __slots__ = (
+        "_config",
+        "_emit_task",
+        "_handler",
+        "_queue",
+        "_shutdown_event",
+        "_state",
+        "_tasks",
+    )
+
     def __init__(
         self,
         config: ChainBuilderConfig,

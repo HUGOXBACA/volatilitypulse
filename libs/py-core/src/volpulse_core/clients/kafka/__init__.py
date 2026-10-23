@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from typing import Any, cast
 
 import confluent_kafka
@@ -55,20 +56,14 @@ def _source_from_proto(value: int) -> QuoteSource:
     }[value]
 
 
+@dataclass(frozen=True, slots=True)
 class KafkaConfig:
     """Configuration for Kafka client connections."""
 
-    def __init__(
-        self,
-        bootstrap_servers: str = "localhost:9092",
-        client_id: str = "volpulse",
-        security_protocol: str = "PLAINTEXT",
-        **kwargs: Any,
-    ) -> None:
-        self.bootstrap_servers = bootstrap_servers
-        self.client_id = client_id
-        self.security_protocol = security_protocol
-        self.extra = kwargs
+    bootstrap_servers: str = "localhost:9092"
+    client_id: str = "volpulse"
+    security_protocol: str = "PLAINTEXT"
+    extra: dict[str, Any] = field(default_factory=dict)
 
     def producer_config(self, **overrides: Any) -> dict[str, Any]:
         config: dict[str, Any] = {
@@ -109,6 +104,8 @@ class KafkaProducer:
     keyed by underlying symbol so all quotes for one symbol land on the same
     partition (preserving per-symbol ordering).
     """
+
+    __slots__ = ("_delivered", "_failed", "_producer", "config", "topic")
 
     def __init__(
         self,
@@ -219,6 +216,8 @@ class KafkaConsumer:
     Wraps confluent_kafka.Consumer. Deserialises protobuf envelopes and
     yields OptionQuote objects.
     """
+
+    __slots__ = ("_closed", "_consumer", "config", "group_id", "topics")
 
     def __init__(
         self,

@@ -88,6 +88,17 @@ class WebSocketClient:
     - Health monitoring and metrics
     """
 
+    __slots__ = (
+        "_config",
+        "_handler",
+        "_producer",
+        "_queue",
+        "_shutdown_event",
+        "_state",
+        "_tasks",
+        "_ws",
+    )
+
     def __init__(
         self,
         config: WebSocketConfig,
