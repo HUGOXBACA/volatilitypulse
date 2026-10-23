@@ -219,7 +219,7 @@ def _fit_distributions(data: np.ndarray) -> list[DistributionFit]:
 
         ks_statistic = float(np.max(np.abs(ecdf - theoretical_cdf)))
         try:
-            ks_pvalue = float(stats.kstest(data, dist.name, args=params).pvalue)
+            ks_pvalue = float(stats.kstest(data, dist.cdf, args=params).pvalue)
         except (ValueError, RuntimeError):
             ks_pvalue = float("nan")
 
