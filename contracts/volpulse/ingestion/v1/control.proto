@@ -1,0 +1,77 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// VolPulse Ingestion Control Service.
+// 
+// gRPC control plane for the ingestion engine. Provides:
+//   * Asynchronous historical backfill requests
+//   * Ingestion engine health and status monitoring
+//   * Surface recomputation triggers
+// ─────────────────────────────────────────────────────────────────────────────
+syntax = "proto3";
+
+package volpulse.ingestion.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+import "volpulse/options/v1/quote.proto";
+import "volpulse/options/v1/streaming.proto";
+
+option csharp_namespace = "VolPulse.Ingestion.V1";
+option go_package = "github.com/volpulse/gen/go/volpulse/ingestion/v1;ingestionv1";
+option java_multiple_files = true;
+option java_package = "com.volpulse.ingestion.v1";
+
+// ── Backfill ────────────────────────────────────────────────────────────────
+
+// Request a historical backfill for an underlying symbol.
+message FetchBackfillRequest {
+  string underlying_symbol = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+  bool run_analytics = 4;
+}
+
+// Response to a backfill request.
+message FetchBackfillResponse {
+  string job_id = 1;
+  string state = 2;
+  google.protobuf.Timestamp accepted_at = 3;
+}
+
+// ── Ingestion Status ────────────────────────────────────────────────────────
+
+message GetIngestStatusRequest {}
+
+message GetIngestStatusResponse {
+  bool healthy = 1;
+  repeated string active_symbols = 2;
+  int64 last_poll_age_ms = 3;
+  uint64 records_published = 4;
+  uint64 records_dropped = 5;
+  int32 current_pacing_delay_ms = 6;
+  string checkpoint_position = 7;
+}
+
+// ── Surface Recomputation ──────────────────────────────────────────────────
+
+message RecomputeSurfaceRequest {
+  string underlying_symbol = 1;
+  google.protobuf.Timestamp as_of = 2;
+}
+
+message RecomputeSurfaceResponse {
+  bool accepted = 1;
+  string job_id = 2;
+}
+
+// ── Control Service ────────────────────────────────────────────────────────
+
+service IngestionControlService {
+  // Request an asynchronous historical backfill.
+  rpc FetchBackfill(FetchBackfillRequest) returns (FetchBackfillResponse);
+  
+  // Health and progress of the ingestion engine.
+  rpc GetIngestStatus(GetIngestStatusRequest) returns (GetIngestStatusResponse);
+  
+  // Trigger a surface recomputation in the analytics engine.
+  rpc RecomputeSurface(RecomputeSurfaceRequest) returns (RecomputeSurfaceResponse);
+}
