@@ -39,6 +39,7 @@ accelerate = [
 [project.scripts]
 volpulse-fetch = "volpulse_core.clients.ivolatility.cli:main"
 volpulse-ws-ingest = "volpulse_core.clients.websocket.cli:main"
+volpulse-chain-build = "volpulse_core.chain.cli:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
