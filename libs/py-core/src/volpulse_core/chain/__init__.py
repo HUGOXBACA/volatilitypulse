@@ -64,6 +64,8 @@ class _ChainBuffer:
     expiry_epoch_day: int
     quotes: dict[int, OptionQuote] = field(default_factory=dict)  # keyed by sequence
     last_emitted_sequence: int = 0
+    last_seen_sequence: int = 0  # Track last sequence seen for gap detection
+    first_sequence: int | None = None
     last_emit_time: float = 0.0
     gaps_detected: int = 0
 
@@ -153,8 +155,24 @@ class ChainBuilder:
             buffer = self._get_buffer(quote.underlying_symbol, quote.expiry_epoch_day)
 
             # Check for sequence gaps
-            if buffer.last_emitted_sequence > 0:
-                expected = buffer.last_emitted_sequence + 1
+            if buffer.first_sequence is None:
+                # First quote for this buffer - record the starting sequence
+                buffer.first_sequence = quote.sequence
+                buffer.last_seen_sequence = quote.sequence
+                if quote.sequence > 1:
+                    # Gap from the expected start (sequence 1)
+                    gap = quote.sequence - 1
+                    buffer.gaps_detected += gap
+                    self._state.gaps_detected += gap
+                    logger.warning(
+                        "Sequence gap detected for %s expiry_day=%d: expected start 1, got %d (gap=%d)",
+                        quote.underlying_symbol,
+                        quote.expiry_epoch_day,
+                        quote.sequence,
+                        gap,
+                    )
+            else:
+                expected = buffer.last_seen_sequence + 1
                 if quote.sequence > expected:
                     gap = quote.sequence - expected
                     buffer.gaps_detected += gap
@@ -167,15 +185,17 @@ class ChainBuilder:
                         quote.sequence,
                         gap,
                     )
-                elif quote.sequence <= buffer.last_emitted_sequence:
-                    # Duplicate or out-of-order quote, skip
+                elif quote.sequence in buffer.quotes:
+                    # True duplicate - already in buffer
                     logger.debug(
-                        "Duplicate/out-of-order quote for %s seq=%d (last=%d)",
+                        "Duplicate quote for %s seq=%d",
                         quote.underlying_symbol,
                         quote.sequence,
-                        buffer.last_emitted_sequence,
                     )
                     continue
+
+                # Update last seen sequence (max of current and new)
+                buffer.last_seen_sequence = max(buffer.last_seen_sequence, quote.sequence)
 
             # Store quote keyed by sequence for ordering
             buffer.quotes[quote.sequence] = quote
