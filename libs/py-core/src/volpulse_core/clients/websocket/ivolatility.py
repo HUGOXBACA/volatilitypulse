@@ -46,6 +46,8 @@ class IVolatilityWebSocketClient(WebSocketClient):
     }
     """
 
+    __slots__ = ("_sequence",)
+
     def __init__(self, config: WebSocketConfig) -> None:
         super().__init__(config, handler=self._handle_quotes)
         self._sequence = 0
