@@ -130,6 +130,8 @@ class IVolatilityWebSocketClient(WebSocketClient):
         try:
             # Try ISO format first
             dt = datetime.fromisoformat(expiry_str)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=UTC)
         except ValueError:
             # Try common formats
             for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%d-%b-%Y"):
