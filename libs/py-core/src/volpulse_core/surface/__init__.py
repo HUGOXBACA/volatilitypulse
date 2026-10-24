@@ -5,6 +5,8 @@
 # arbitrage-free parameterizations. JIT-compiled with numba/jax for speed.
 # ─────────────────────────────────────────────────────────────────────────────
 
+# mypy: disable-error-code="no-any-return"
+
 from __future__ import annotations
 
 import logging
@@ -14,6 +16,21 @@ from enum import Enum
 from typing import Protocol
 
 import numpy as np
+
+try:
+    from numba import jit
+    NUMBA_AVAILABLE = True
+except ImportError:
+    # Fallback decorator if numba not available
+    from collections.abc import Callable
+    from typing import Any
+    
+    def _jit_fallback(nopython: bool = True, nogil: bool = False, cache: bool = False) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+            return func
+        return decorator
+    jit = _jit_fallback  # type: ignore[assignment]
+    NUMBA_AVAILABLE = False
 
 from volpulse_core.models.chain import OptionChainSnapshot
 
@@ -233,20 +250,22 @@ class SVIFitter:
             "sigma": float(params[4]),
         }
 
-    def _svi_variance(self, k: np.ndarray, params: dict[str, float]) -> np.ndarray:
-        """Compute SVI total variance."""
-        a, b, rho, m, sigma = params["a"], params["b"], params["rho"], params["m"], params["sigma"]
+    @staticmethod
+    @jit(nopython=True, cache=True)
+    def _svi_variance_jit(k: np.ndarray, a: float, b: float, rho: float, m: float, sigma: float) -> np.ndarray:
+        """Compute SVI total variance (JIT-compiled)."""
         return a + b * (rho * (k - m) + np.sqrt((k - m) ** 2 + sigma ** 2))
 
-    def _svi_gradient(
-        self,
-        params: np.ndarray,
-        k: np.ndarray,
-        w_target: np.ndarray,
-    ) -> np.ndarray:
-        """Compute gradient of SVI loss."""
+    def _svi_variance(self, k: np.ndarray, params: dict[str, float]) -> np.ndarray:
+        """Compute SVI total variance."""
+        return self._svi_variance_jit(k, params["a"], params["b"], params["rho"], params["m"], params["sigma"])
+
+    @staticmethod
+    @jit(nopython=True, cache=True)
+    def _svi_gradient_jit(params: np.ndarray, k: np.ndarray, w_target: np.ndarray) -> np.ndarray:
+        """Compute gradient of SVI loss (JIT-compiled)."""
         a, b, rho, m, sigma = params
-        w = self._svi_variance(k, {"a": a, "b": b, "rho": rho, "m": m, "sigma": sigma})
+        w = a + b * (rho * (k - m) + np.sqrt((k - m) ** 2 + sigma ** 2))
         diff = w - w_target
 
         # Gradients wrt each parameter
@@ -258,14 +277,29 @@ class SVIFitter:
 
         return np.array([da, db, drho, dm, dsigma])
 
-    def _enforce_svi_constraints(self, params: np.ndarray) -> np.ndarray:
-        """Enforce SVI no-arbitrage constraints."""
+    def _svi_gradient(
+        self,
+        params: np.ndarray,
+        k: np.ndarray,
+        w_target: np.ndarray,
+    ) -> np.ndarray:
+        """Compute gradient of SVI loss."""
+        return self._svi_gradient_jit(params, k, w_target)
+
+    @staticmethod
+    @jit(nopython=True, cache=True)
+    def _enforce_svi_constraints_jit(params: np.ndarray) -> np.ndarray:
+        """Enforce SVI no-arbitrage constraints (JIT-compiled)."""
         a, b, rho, m, sigma = params
         a = max(a, 0.0)
         b = max(b, 0.0)
-        rho = np.clip(rho, -0.999, 0.999)
+        rho = max(-0.999, min(0.999, rho))
         sigma = max(sigma, 1e-6)
         return np.array([a, b, rho, m, sigma])
+
+    def _enforce_svi_constraints(self, params: np.ndarray) -> np.ndarray:
+        """Enforce SVI no-arbitrage constraints."""
+        return self._enforce_svi_constraints_jit(params)
 
     def _flatten_params(self, svi_params: dict[str, dict[str, float]]) -> dict[str, float]:
         """Flatten nested params dict."""
@@ -317,6 +351,8 @@ class SABRFitter:
     SABR model: dF = sigma * F^beta * dW1, d(sigma) = alpha * sigma * dW2
     with correlation rho between dW1 and dW2.
     """
+
+    __slots__ = ()
 
     def fit(
         self,
@@ -432,16 +468,17 @@ class SABRFitter:
             "nu": float(params[3]),
         }
 
-    def _sabr_volatility(
-        self,
+    @staticmethod
+    @jit(nopython=True, cache=True)
+    def _sabr_volatility_jit(
         k: np.ndarray,
-        forward: float,
-        params: dict[str, float],
+        f: float,
+        alpha: float,
+        beta: float,
+        rho: float,
+        nu: float,
     ) -> np.ndarray:
-        """Hagan's SABR implied volatility formula (approximate)."""
-        alpha, beta, rho, nu = params["alpha"], params["beta"], params["rho"], params["nu"]
-
-        f = forward
+        """Hagan's SABR implied volatility formula (JIT-compiled)."""
         x = np.log(f / k)
 
         # Hagan 2002 formula
@@ -469,6 +506,31 @@ class SABRFitter:
 
         return vol
 
+    def _sabr_volatility(
+        self,
+        k: np.ndarray,
+        forward: float,
+        params: dict[str, float],
+    ) -> np.ndarray:
+        """Hagan's SABR implied volatility formula (approximate)."""
+        return self._sabr_volatility_jit(
+            k, forward,
+            params["alpha"], params["beta"], params["rho"], params["nu"]
+        )
+
+    @staticmethod
+    @jit(nopython=True, cache=True)
+    def _enforce_sabr_constraints_jit(params: np.ndarray) -> np.ndarray:
+        alpha, beta, rho, nu = params
+        alpha = max(alpha, 1e-4)
+        beta = max(0.0, min(1.0, beta))
+        rho = max(-0.999, min(0.999, rho))
+        nu = max(nu, 1e-4)
+        return np.array([alpha, beta, rho, nu])
+
+    def _enforce_sabr_constraints(self, params: np.ndarray) -> np.ndarray:
+        return self._enforce_sabr_constraints_jit(params)
+
     def _sabr_gradient(
         self,
         params: np.ndarray,
@@ -486,14 +548,6 @@ class SABRFitter:
             2 * np.mean(diff * alpha * nu * (k / forward) ** ((1 - beta) / 2) / (1 - rho ** 2)),
             2 * np.mean(diff * alpha * (k / forward) ** ((1 - beta) / 2) * np.log(forward / k)),
         ])
-
-    def _enforce_sabr_constraints(self, params: np.ndarray) -> np.ndarray:
-        alpha, beta, rho, nu = params
-        alpha = max(alpha, 1e-4)
-        beta = np.clip(beta, 0.0, 1.0)
-        rho = np.clip(rho, -0.999, 0.999)
-        nu = max(nu, 1e-4)
-        return np.array([alpha, beta, rho, nu])
 
     def _flatten_params(self, sabr_params: dict[str, dict[str, float]]) -> dict[str, float]:
         flat = {}
@@ -516,6 +570,8 @@ class SABRFitter:
 
 class SplineFitter:
     """Cubic spline surface fitter for IV surfaces."""
+
+    __slots__ = ()
 
     def fit(
         self,
