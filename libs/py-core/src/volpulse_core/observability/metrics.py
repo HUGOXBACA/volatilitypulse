@@ -1,16 +1,16 @@
-"""Prometheus metrics for the VolPulse pipeline.
-
-Every service owns its own registry so that a test can instantiate the
-metrics without colliding with the global default registry.
-
-The metric names below are part of the operational contract: dashboards in
-``infra/grafana`` and the alerting rules in ``infra/prometheus/rules`` query
-them by name. Renaming one is a breaking change for the on-call rotation.
-"""
+# ─────────────────────────────────────────────────────────────────────────────
+# Prometheus metrics for VolPulse.
+# ─────────────────────────────────────────────────────────────────────────────
 
 from __future__ import annotations
 
+import threading
+import types
+from dataclasses import dataclass
+from typing import Self
+
 from prometheus_client import (
+    CONTENT_TYPE_LATEST,
     CollectorRegistry,
     Counter,
     Gauge,
@@ -18,106 +18,229 @@ from prometheus_client import (
     generate_latest,
 )
 
-__all__ = ["VolPulseMetrics"]
+logger = __import__("logging").getLogger(__name__)
+
+__all__ = [
+    "ACTIVE_CONNECTIONS_GAUGE",
+    "CACHE_HIT_RATIO",
+    "ERROR_COUNTER",
+    "LATENCY_HISTOGRAM",
+    "THROUGHPUT_COUNTER",
+    "MetricsRegistry",
+    "get_metrics_registry",
+]
 
 
-class VolPulseMetrics:
-    """The metric set exported by the VolPulse services."""
+@dataclass(frozen=True, slots=True)
+class MetricLabels:
+    """Standardized label names for consistency across metrics."""
 
-    __slots__ = (
-        "consumer_lag",
-        "end_to_end_latency",
-        "greek_calculations",
-        "persistence_write_duration",
-        "quotes_consumed",
-        "quotes_dropped",
-        "registry",
-        "surface_arbitrage_violations",
-        "surface_fit_duration",
-        "surface_fit_rms_error",
-        "upstream_pacing_delay",
-        "upstream_request_duration",
-    )
+    SERVICE = "service"
+    ENDPOINT = "endpoint"
+    METHOD = "method"
+    STATUS = "status"
+    ERROR_TYPE = "error_type"
+    CACHE_NAME = "cache_name"
+    COMPONENT = "component"
+
+
+# Global registry instance
+_registry: MetricsRegistry | None = None
+_registry_lock = threading.Lock()
+
+
+def get_metrics_registry() -> MetricsRegistry:
+    """Get the global metrics registry (singleton)."""
+    global _registry
+    if _registry is None:
+        with _registry_lock:
+            if _registry is None:
+                _registry = MetricsRegistry()
+    return _registry
+
+
+class MetricsRegistry:
+    """Centralized metrics registry for the VolPulse platform.
+
+    Provides thread-safe access to all metrics and ensures consistent
+    labeling across the platform.
+    """
 
     def __init__(self, registry: CollectorRegistry | None = None) -> None:
-        """Create the metric set.
+        self._registry = registry or CollectorRegistry()
+        self._lock = threading.Lock()
 
-        Args:
-            registry: Registry to register into. A fresh registry is created
-                when omitted, which keeps tests isolated from each other.
-        """
-        self.registry = registry if registry is not None else CollectorRegistry()
-
-        self.quotes_consumed = Counter(
-            "volpulse_quotes_consumed_total",
-            "Quotes successfully consumed from the broker.",
-            labelnames=("underlying",),
-            registry=self.registry,
-        )
-        self.quotes_dropped = Counter(
-            "volpulse_quotes_dropped_total",
-            "Quotes dropped by the consumer.",
-            labelnames=("underlying", "reason"),
-            registry=self.registry,
-        )
-        self.consumer_lag = Gauge(
-            "volpulse_consumer_lag_seconds",
-            "Age of the oldest record sitting in the broker partition.",
-            labelnames=("topic", "partition"),
-            registry=self.registry,
-        )
-        self.end_to_end_latency = Histogram(
-            "volpulse_end_to_end_latency_seconds",
-            "Time from upstream event timestamp to analytics processing.",
-            labelnames=("underlying",),
-            buckets=(0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 30.0),
-            registry=self.registry,
-        )
-        self.upstream_request_duration = Histogram(
-            "volpulse_upstream_request_duration_seconds",
-            "Duration of upstream API calls.",
-            labelnames=("endpoint",),
-            buckets=(0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 15.0),
-            registry=self.registry,
-        )
-        self.upstream_pacing_delay = Gauge(
-            "volpulse_upstream_pacing_delay_seconds",
-            "Seconds the upstream client is currently holding back.",
-            registry=self.registry,
-        )
-        self.surface_fit_duration = Histogram(
-            "volpulse_surface_fit_duration_seconds",
-            "Time spent fitting an implied volatility surface.",
-            labelnames=("underlying",),
-            buckets=(0.01, 0.05, 0.1, 0.5, 1.0, 5.0),
-            registry=self.registry,
-        )
-        self.surface_fit_rms_error = Gauge(
-            "volpulse_surface_fit_rms_error",
-            "RMS error of the most recent surface fit.",
-            labelnames=("underlying",),
-            registry=self.registry,
-        )
-        self.surface_arbitrage_violations = Counter(
-            "volpulse_surface_arbitrage_violations_total",
-            "Number of detected butterfly or calendar arbitrage violations.",
-            labelnames=("underlying", "kind"),
-            registry=self.registry,
-        )
-        self.persistence_write_duration = Histogram(
-            "volpulse_persistence_write_duration_seconds",
-            "Time spent writing analytics results to the stores.",
-            labelnames=("store",),
-            buckets=(0.005, 0.05, 0.25, 1.0, 5.0),
-            registry=self.registry,
-        )
-        self.greek_calculations = Counter(
-            "volpulse_greek_calculations_total",
-            "Number of Greek evaluations performed.",
-            labelnames=("underlying",),
-            registry=self.registry,
+        # Latency histograms (in seconds)
+        self._latency_histogram = Histogram(
+            "volpulse_latency_seconds",
+            "Latency of operations in seconds",
+            ["service", "operation"],
+            buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
+            registry=self._registry,
         )
 
-    def render(self) -> bytes:
-        """Render the registry in the Prometheus text exposition format."""
-        return generate_latest(self.registry)
+        # Throughput counters
+        self._throughput_counter = Counter(
+            "volpulse_throughput_total",
+            "Total number of processed items",
+            ["service", "operation", "status"],
+            registry=self._registry,
+        )
+
+        # Error counters
+        self._error_counter = Counter(
+            "volpulse_errors_total",
+            "Total number of errors",
+            ["service", "operation", "error_type"],
+            registry=self._registry,
+        )
+
+        # Active connections gauge
+        self._active_connections = Gauge(
+            "volpulse_active_connections",
+            "Number of active connections",
+            ["service", "component"],
+            registry=self._registry,
+        )
+
+        # Cache hit ratio
+        self._cache_hits = Counter(
+            "volpulse_cache_hits_total",
+            "Total number of cache hits",
+            ["cache_name"],
+            registry=self._registry,
+        )
+        self._cache_misses = Counter(
+            "volpulse_cache_misses_total",
+            "Total number of cache misses",
+            ["cache_name"],
+            registry=self._registry,
+        )
+
+    # ── Latency ─────────────────────────────────────────────────────────────
+
+    def observe_latency(self, service: str, operation: str, duration_seconds: float) -> None:
+        """Record latency observation."""
+        self._latency_histogram.labels(service=service, operation=operation).observe(duration_seconds)
+
+    def get_latency_histogram(self) -> Histogram:
+        """Get the latency histogram for direct use."""
+        return self._latency_histogram
+
+    # ── Throughput ──────────────────────────────────────────────────────────
+
+    def increment_throughput(self, service: str, operation: str, status: str = "success", count: int = 1) -> None:
+        """Increment throughput counter."""
+        self._throughput_counter.labels(service=service, operation=operation, status=status).inc(count)
+
+    # ── Errors ──────────────────────────────────────────────────────────────
+
+    def increment_error(self, service: str, operation: str, error_type: str) -> None:
+        """Increment error counter."""
+        self._error_counter.labels(service=service, operation=operation, error_type=error_type).inc()
+
+    # ── Connections ─────────────────────────────────────────────────────────
+
+    def set_active_connections(self, service: str, component: str, count: int) -> None:
+        """Set active connections gauge."""
+        self._active_connections.labels(service=service, component=component).set(count)
+
+    def increment_connections(self, service: str, component: str, delta: int = 1) -> None:
+        """Increment active connections."""
+        self._active_connections.labels(service=service, component=component).inc(delta)
+
+    def decrement_connections(self, service: str, component: str, delta: int = 1) -> None:
+        """Decrement active connections."""
+        self._active_connections.labels(service=service, component=component).dec(delta)
+
+    # ── Cache ───────────────────────────────────────────────────────────────
+
+    def record_cache_hit(self, cache_name: str) -> None:
+        """Record cache hit."""
+        self._cache_hits.labels(cache_name=cache_name).inc()
+
+    def record_cache_miss(self, cache_name: str) -> None:
+        """Record cache miss."""
+        self._cache_misses.labels(cache_name=cache_name).inc()
+
+    def get_cache_hit_ratio(self, cache_name: str) -> float:
+        """Calculate cache hit ratio for a cache."""
+        hits = self._cache_hits.labels(cache_name=cache_name)._value.get()
+        misses = self._cache_misses.labels(cache_name=cache_name)._value.get()
+        total = hits + misses
+        return hits / total if total > 0 else 0.0
+
+    # ── Export ──────────────────────────────────────────────────────────────
+
+    def generate_metrics(self) -> bytes:
+        """Generate Prometheus metrics exposition format."""
+        return generate_latest(self._registry)
+
+    def get_content_type(self) -> str:
+        """Get the content type for Prometheus metrics."""
+        return CONTENT_TYPE_LATEST
+
+    def get_registry(self) -> CollectorRegistry:
+        """Get the underlying Prometheus registry."""
+        return self._registry
+
+
+# ── Pre-created default metrics for convenience ─────────────────────────────
+
+LATENCY_HISTOGRAM = Histogram(
+    "volpulse_latency_seconds",
+    "Latency of operations in seconds",
+    ["service", "operation"],
+    buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
+)
+
+THROUGHPUT_COUNTER = Counter(
+    "volpulse_throughput_total",
+    "Total number of processed items",
+    ["service", "operation", "status"],
+)
+
+ERROR_COUNTER = Counter(
+    "volpulse_errors_total",
+    "Total number of errors",
+    ["service", "operation", "error_type"],
+)
+
+ACTIVE_CONNECTIONS_GAUGE = Gauge(
+    "volpulse_active_connections",
+    "Number of active connections",
+    ["service", "component"],
+)
+
+CACHE_HIT_RATIO = Gauge(
+    "volpulse_cache_hit_ratio",
+    "Cache hit ratio",
+    ["cache_name"],
+)
+
+
+# ─── Helper functions ───────────────────────────────────────────────────────
+
+class LatencyTimer:
+    """Context manager for timing operations."""
+
+    def __init__(self, registry: MetricsRegistry, service: str, operation: str) -> None:
+        self._registry = registry
+        self._service = service
+        self._operation = operation
+        self._start_time: float = 0.0
+
+    def __enter__(self) -> Self:
+        import time
+        self._start_time = time.perf_counter()
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: types.TracebackType | None,
+    ) -> None:
+        import time
+        duration = time.perf_counter() - self._start_time
+        self._registry.observe_latency(self._service, self._operation, duration)
