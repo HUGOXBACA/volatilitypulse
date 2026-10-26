@@ -1,0 +1,111 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// VolPulse Analytics Service Contracts.
+// ─────────────────────────────────────────────────────────────────────────────
+
+syntax = "proto3";
+
+package volpulse.analytics.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+import "volpulse/options/v1/quote.proto";
+import "volpulse/common/v1/common.proto";
+
+option csharp_namespace = "VolPulse.Analytics.V1";
+option go_package = "github.com/volpulse/gen/go/volpulse/analytics/v1;analyticsv1";
+option java_multiple_files = true;
+option java_package = "com.volpulse.analytics.v1";
+
+// ── Request/Response Messages ────────────────────────────────────────────────
+
+// Request to get the current fitted volatility surface for an underlying.
+message GetSurfaceRequest {
+  string underlying_symbol = 1;
+  // Optional: specific timestamp to query. If not provided, returns latest.
+  google.protobuf.Timestamp as_of = 2;
+  // Optional: filter by specific expiries (epoch days). Empty = all.
+  repeated int32 expiry_epoch_days = 3;
+}
+
+message GetSurfaceResponse {
+  volpulse.options.v1.VolatilitySurface surface = 1;
+  google.protobuf.Timestamp retrieved_at = 2;
+  bool from_cache = 3;
+}
+
+// Request to get Greeks for specific contracts or all contracts for an underlying.
+message GetGreeksRequest {
+  string underlying_symbol = 1;
+  // Optional: specific contract IDs. Empty = all contracts for underlying.
+  repeated string contract_ids = 2;
+  // Optional: specific timestamp. If not provided, uses latest surface.
+  google.protobuf.Timestamp as_of = 3;
+}
+
+message GetGreeksResponse {
+  map<string, volpulse.options.v1.Greeks> greeks = 1;  // key = contract_id
+  google.protobuf.Timestamp retrieved_at = 2;
+  bool from_cache = 3;
+}
+
+// Request to trigger surface recomputation.
+message RecomputeSurfaceRequest {
+  string underlying_symbol = 1;
+  // Optional: specific timestamp. If not provided, recomputes for latest data.
+  google.protobuf.Timestamp as_of = 2;
+  // Optional: force recomputation even if surface exists.
+  bool force = 3;
+}
+
+message RecomputeSurfaceResponse {
+  string job_id = 1;
+  string state = 2;  // "accepted", "running", "completed", "failed"
+  google.protobuf.Timestamp accepted_at = 3;
+}
+
+// Request to get historical surface snapshots.
+message GetSurfaceHistoryRequest {
+  string underlying_symbol = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+  int32 limit = 4;  // max number of surfaces to return
+}
+
+message GetSurfaceHistoryResponse {
+  repeated volpulse.options.v1.VolatilitySurface surfaces = 1;
+}
+
+// Request to get Greeks history for a contract.
+message GetGreeksHistoryRequest {
+  string contract_id = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+  int32 limit = 4;
+}
+
+message GetGreeksHistoryResponse {
+  map<string, volpulse.options.v1.Greeks> greeks = 1;  // key = timestamp (ISO 8601)
+  google.protobuf.Timestamp retrieved_at = 2;
+}
+
+// ── gRPC Service Definition ────────────────────────────────────────────────
+
+service AnalyticsService {
+  // Get the current fitted volatility surface for an underlying.
+  rpc GetSurface(GetSurfaceRequest) returns (GetSurfaceResponse);
+
+  // Get Greeks for specific contracts or all contracts for an underlying.
+  rpc GetGreeks(GetGreeksRequest) returns (GetGreeksResponse);
+
+  // Trigger a surface recomputation.
+  rpc RecomputeSurface(RecomputeSurfaceRequest) returns (RecomputeSurfaceResponse);
+
+  // Get historical surface snapshots for an underlying.
+  rpc GetSurfaceHistory(GetSurfaceHistoryRequest) returns (GetSurfaceHistoryResponse);
+
+  // Get Greeks history for a specific contract.
+  rpc GetGreeksHistory(GetGreeksHistoryRequest) returns (GetGreeksHistoryResponse);
+
+  // Server-side streaming for real-time surface updates.
+  rpc WatchSurface(GetSurfaceRequest) returns (stream GetSurfaceResponse);
+}
