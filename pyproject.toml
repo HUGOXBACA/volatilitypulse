@@ -68,6 +68,7 @@ types-pyyaml = ">=6.0"
 scipy-stubs = ">=1.14"
 types-grpcio = "^1.84.0.20261021"
 types-aiofiles = "^25.1.0.20260518"
+structlog = "^26.1.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
