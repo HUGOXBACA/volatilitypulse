@@ -141,7 +141,7 @@ disallow_any_generics = true
 no_implicit_optional = true
 check_untyped_defs = true
 warn_return_any = true
-exclude = ["^\\.gen/", "^build/"]
+exclude = ["^\\.gen/", "^build/", "^libs/py-core/src/volpulse/options/v1/", "^libs/py-core/src/volpulse/ingestion/v1/", "^libs/py-core/src/volpulse/analytics/v1/", "^libs/py-core/src/volpulse/common/v1/"]
 
 [[tool.mypy.overrides]]
 module = ["confluent_kafka.*", "numba.*", "jax.*"]
@@ -155,7 +155,7 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 # Generated protobuf stubs are build artefacts; never type-check them.
-module = ["volpulse.options.v1.*", "volpulse.common.v1.*"]
+module = ["volpulse.options.v1.*", "volpulse.common.v1.*", "volpulse.ingestion.v1.*", "volpulse.analytics.v1.*"]
 ignore_errors = true
 
 [tool.pytest.ini_options]
