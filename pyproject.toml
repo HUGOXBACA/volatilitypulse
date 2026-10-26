@@ -39,6 +39,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "pyyaml>=6.0",
     "pydantic-settings>=2.0",
+    "volpulse-core @ file:///Users/user0001/Projects/volatilitypulse/libs/py-core",
 ]
 
 [project.optional-dependencies]
@@ -139,7 +140,7 @@ disallow_any_generics = true
 no_implicit_optional = true
 check_untyped_defs = true
 warn_return_any = true
-exclude = ["^\\.gen/", "^build/"]
+exclude = ["^\\.gen/", "^build/", "^src/volpulse/"]
 
 [[tool.mypy.overrides]]
 module = ["confluent_kafka.*", "numba.*", "jax.*"]
