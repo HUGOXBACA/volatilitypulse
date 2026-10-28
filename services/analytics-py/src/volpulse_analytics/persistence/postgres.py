@@ -33,6 +33,15 @@ postgres_ddl: tuple[str, ...] = (
     )
     """,
     """
+    INSERT INTO positions
+    (contract_id, underlying_symbol, strike, right, quantity, avg_entry_price, opened_at)
+    VALUES (%s, %s, %s, %s, %s, %s, %s)
+    ON CONFLICT (contract_id) DO UPDATE SET
+        quantity = EXCLUDED.quantity,
+        avg_entry_price = EXCLUDED.avg_entry_price,
+        updated_at = now()
+    """,
+    """
     CREATE TABLE IF NOT EXISTS portfolios (
         portfolio_id text PRIMARY KEY,
         description  text NOT NULL,
@@ -61,6 +70,13 @@ postgres_ddl: tuple[str, ...] = (
     """,
     "CREATE INDEX IF NOT EXISTS emitted_signals_lookup "
     "ON emitted_signals (contract_id, kind, emitted_at)",
+    """
+    INSERT INTO ingestion_checkpoints (topic, partition, offset)
+    VALUES (%s, %s, %s)
+    ON CONFLICT (topic, partition) DO UPDATE SET
+        offset = EXCLUDED.offset,
+        updated_at = now()
+    """,
 )
 
 

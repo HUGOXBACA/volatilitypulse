@@ -237,10 +237,13 @@ class ParquetReader:
             )
             quotes.append(quote)
 
+        # Use first value of snapshot_sequence (all rows in group have same value)
+        sequence = df["snapshot_sequence"][0]
+
         return OptionChainSnapshot(
             underlying_symbol=quotes[0].underlying_symbol,
             event_time_ns=quotes[0].event_time_ns,
-            sequence=df["snapshot_sequence"].item(),
+            sequence=sequence,
             quotes=tuple(quotes),
             reported_quote_count=len(quotes),
         )

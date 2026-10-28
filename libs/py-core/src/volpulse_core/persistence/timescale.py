@@ -273,7 +273,7 @@ class TimescaleWriter:
         batch = self._batch_queue[:self._config.batch_size]
         self._batch_queue = self._batch_queue[self._config.batch_size:]
 
-        conn = await self.acquire()
+        conn = await self._pool.acquire()
         async with conn, conn.transaction():
             for snapshot in batch:
                 await self._insert_snapshot(conn, snapshot)
