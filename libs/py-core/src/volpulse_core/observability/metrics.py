@@ -27,6 +27,7 @@ __all__ = [
     "LATENCY_HISTOGRAM",
     "THROUGHPUT_COUNTER",
     "MetricsRegistry",
+    "VolPulseMetrics",
     "get_metrics_registry",
 ]
 
@@ -117,6 +118,40 @@ class MetricsRegistry:
             registry=self._registry,
         )
 
+        # Analytics-specific metrics
+        self._quotes_consumed = Counter(
+            "volpulse_quotes_consumed_total",
+            "Total number of quotes consumed",
+            ["underlying"],
+            registry=self._registry,
+        )
+        self._end_to_end_latency = Histogram(
+            "volpulse_end_to_end_latency_seconds",
+            "End-to-end latency from event to processing",
+            ["underlying"],
+            buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
+            registry=self._registry,
+        )
+        self._surface_fit_duration = Histogram(
+            "volpulse_surface_fit_duration_seconds",
+            "Time spent fitting volatility surfaces",
+            ["underlying"],
+            buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0),
+            registry=self._registry,
+        )
+        self._surface_fit_rms_error = Gauge(
+            "volpulse_surface_fit_rms_error",
+            "RMS error of the fitted volatility surface",
+            ["underlying"],
+            registry=self._registry,
+        )
+        self._surface_arbitrage_violations = Counter(
+            "volpulse_surface_arbitrage_violations_total",
+            "Total number of surface arbitrage violations",
+            ["underlying", "kind"],
+            registry=self._registry,
+        )
+
     # ── Latency ─────────────────────────────────────────────────────────────
 
     def observe_latency(self, service: str, operation: str, duration_seconds: float) -> None:
@@ -169,6 +204,33 @@ class MetricsRegistry:
         misses = self._cache_misses.labels(cache_name=cache_name)._value.get()
         total = hits + misses
         return hits / total if total > 0 else 0.0
+
+    # ── Analytics-specific metrics ──────────────────────────────────────────────
+
+    @property
+    def quotes_consumed(self) -> Counter:
+        """Counter for quotes consumed per underlying."""
+        return self._quotes_consumed
+
+    @property
+    def end_to_end_latency(self) -> Histogram:
+        """Histogram for end-to-end latency per underlying."""
+        return self._end_to_end_latency
+
+    @property
+    def surface_fit_duration(self) -> Histogram:
+        """Histogram for surface fit duration per underlying."""
+        return self._surface_fit_duration
+
+    @property
+    def surface_fit_rms_error(self) -> Gauge:
+        """Gauge for surface fit RMS error per underlying."""
+        return self._surface_fit_rms_error
+
+    @property
+    def surface_arbitrage_violations(self) -> Counter:
+        """Counter for surface arbitrage violations per underlying and kind."""
+        return self._surface_arbitrage_violations
 
     # ── Export ──────────────────────────────────────────────────────────────
 
@@ -244,3 +306,7 @@ class LatencyTimer:
         import time
         duration = time.perf_counter() - self._start_time
         self._registry.observe_latency(self._service, self._operation, duration)
+
+
+# Alias for backward compatibility
+VolPulseMetrics = MetricsRegistry
