@@ -35,7 +35,10 @@ requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-packages = [{ include = "volpulse_analytics", from = "src" }]
+packages = [
+    { include = "volpulse_analytics", from = "src" },
+    { include = "volpulse_analytics/py.typed", from = "src" },
+]
 
 [tool.poetry.dependencies]
 # The shared library is consumed from the monorepo, not from an index: the
