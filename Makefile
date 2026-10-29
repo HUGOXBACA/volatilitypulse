@@ -66,6 +66,10 @@ help: ## Show this catalogue
 bootstrap: ## Install all toolchains, dependencies and generated code
 	@bash tools/scripts/bootstrap.sh
 
+.PHONY: demo
+demo: ## Run the offline end-to-end demo (no Docker, no API key)
+	@bash tools/scripts/demo.sh
+
 .PHONY: install
 install: install-py install-cpp ## Install dependencies for every language
 
@@ -233,19 +237,6 @@ kafka-console-consumer: ## Consume messages from Kafka (topic=options.chain.stre
 		--topic options.chain.streaming \
 		--from-beginning \
 		--bootstrap-server localhost:9092
-
-.PHONY: run-ingestion
-run-ingestion: ## Run the C++ ingestion engine
-	$(BUILD_DIR)/bin/volpulse-ingestion --config config/ingestion.yaml
-
-.PHONY: run-analytics
-run-analytics: ## Run the Python quant analytics engine
-	poetry -C $(PY_SERVICE) run python -m volpulse_analytics --config config/analytics.yaml
-
-.PHONY: run-stack
-run-stack: ## Run ingestion + analytics in the foreground
-	@bash tools/scripts/run_stack.sh
-
 
 .PHONY: run-ingestion
 run-ingestion: ## Run the C++ ingestion engine

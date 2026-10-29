@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // VolPulse Ingestion Control Service.
-// 
+//
 // gRPC control plane for the ingestion engine. Provides:
 //   * Asynchronous historical backfill requests
 //   * Ingestion engine health and status monitoring
@@ -11,9 +11,6 @@ syntax = "proto3";
 package volpulse.ingestion.v1;
 
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/empty.proto";
-import "volpulse/options/v1/quote.proto";
-import "volpulse/options/v1/streaming.proto";
 
 option csharp_namespace = "VolPulse.Ingestion.V1";
 option go_package = "github.com/volpulse/gen/go/volpulse/ingestion/v1;ingestionv1";
@@ -68,10 +65,10 @@ message RecomputeSurfaceResponse {
 service IngestionControlService {
   // Request an asynchronous historical backfill.
   rpc FetchBackfill(FetchBackfillRequest) returns (FetchBackfillResponse);
-  
+
   // Health and progress of the ingestion engine.
   rpc GetIngestStatus(GetIngestStatusRequest) returns (GetIngestStatusResponse);
-  
+
   // Trigger a surface recomputation in the analytics engine.
   rpc RecomputeSurface(RecomputeSurfaceRequest) returns (RecomputeSurfaceResponse);
 }

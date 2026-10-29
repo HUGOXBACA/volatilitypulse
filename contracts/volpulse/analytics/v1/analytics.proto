@@ -7,9 +7,7 @@ syntax = "proto3";
 package volpulse.analytics.v1;
 
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/empty.proto";
 import "volpulse/options/v1/quote.proto";
-import "volpulse/common/v1/common.proto";
 
 option csharp_namespace = "VolPulse.Analytics.V1";
 option go_package = "github.com/volpulse/gen/go/volpulse/analytics/v1;analyticsv1";
@@ -43,7 +41,7 @@ message GetGreeksRequest {
 }
 
 message GetGreeksResponse {
-  map<string, volpulse.options.v1.Greeks> greeks = 1;  // key = contract_id
+  map<string, volpulse.options.v1.Greeks> greeks = 1; // key = contract_id
   google.protobuf.Timestamp retrieved_at = 2;
   bool from_cache = 3;
 }
@@ -59,7 +57,7 @@ message RecomputeSurfaceRequest {
 
 message RecomputeSurfaceResponse {
   string job_id = 1;
-  string state = 2;  // "accepted", "running", "completed", "failed"
+  string state = 2; // "accepted", "running", "completed", "failed"
   google.protobuf.Timestamp accepted_at = 3;
 }
 
@@ -68,7 +66,7 @@ message GetSurfaceHistoryRequest {
   string underlying_symbol = 1;
   google.protobuf.Timestamp from = 2;
   google.protobuf.Timestamp to = 3;
-  int32 limit = 4;  // max number of surfaces to return
+  int32 limit = 4; // max number of surfaces to return
 }
 
 message GetSurfaceHistoryResponse {
@@ -84,8 +82,21 @@ message GetGreeksHistoryRequest {
 }
 
 message GetGreeksHistoryResponse {
-  map<string, volpulse.options.v1.Greeks> greeks = 1;  // key = timestamp (ISO 8601)
+  map<string, volpulse.options.v1.Greeks> greeks = 1; // key = timestamp (ISO 8601)
   google.protobuf.Timestamp retrieved_at = 2;
+}
+
+// Request to watch real-time surface updates for an underlying.
+message WatchSurfaceRequest {
+  string underlying_symbol = 1;
+  // Optional: filter by specific expiries (epoch days). Empty = all.
+  repeated int32 expiry_epoch_days = 2;
+}
+
+message WatchSurfaceResponse {
+  volpulse.options.v1.VolatilitySurface surface = 1;
+  google.protobuf.Timestamp retrieved_at = 2;
+  bool from_cache = 3;
 }
 
 // ── gRPC Service Definition ────────────────────────────────────────────────
@@ -107,5 +118,5 @@ service AnalyticsService {
   rpc GetGreeksHistory(GetGreeksHistoryRequest) returns (GetGreeksHistoryResponse);
 
   // Server-side streaming for real-time surface updates.
-  rpc WatchSurface(GetSurfaceRequest) returns (stream GetSurfaceResponse);
+  rpc WatchSurface(WatchSurfaceRequest) returns (stream WatchSurfaceResponse);
 }
