@@ -35,7 +35,10 @@ requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-packages = [{ include = "volpulse_analytics", from = "src" }]
+packages = [
+    { include = "volpulse_analytics", from = "src" },
+    { include = "volpulse_analytics/py.typed", from = "src" },
+]
 
 [tool.poetry.dependencies]
 # The shared library is consumed from the monorepo, not from an index: the
@@ -48,3 +51,4 @@ pytest-asyncio = ">=0.24"
 hypothesis = ">=6.112"
 ruff = ">=0.7"
 mypy = ">=1.13"
+scipy-stubs = "^1.18.1.1"

@@ -1121,7 +1121,7 @@ version = "2.5.4"
 description = "Fundamental package for array computing in Python"
 optional = false
 python-versions = ">=3.12"
-groups = ["main"]
+groups = ["main", "dev"]
 files = [
     {file = "numpy-2.5.4-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:c6342f54c67093cae5c0227eb0eb772fdb79f2a2c37a6eb278b9909ee06aa356"},
     {file = "numpy-2.5.4-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:b11e8fda06a7d69f15ebf542660b74466c2e51094800c1fb794f47ad4faeef17"},
@@ -1192,6 +1192,21 @@ files = [
 ]
 
 [[package]]
+name = "numpy-typing-compat"
+version = "20260602.2.5"
+description = "Static typing compatibility layer for older versions of NumPy"
+optional = false
+python-versions = ">=3.12"
+groups = ["dev"]
+files = [
+    {file = "numpy_typing_compat-20260602.2.5-py3-none-any.whl", hash = "sha256:21ba7757c8924d359a9ed3ab2163c282a70983ae64498fdba6d1892a6641c8b1"},
+    {file = "numpy_typing_compat-20260602.2.5.tar.gz", hash = "sha256:1885a678e9a24564839ed5d1711c0031735fb7de7f0b5ed88d550e5d45a8d4f9"},
+]
+
+[package.dependencies]
+numpy = ">=2.5rc1,<2.6"
+
+[[package]]
 name = "opt-einsum"
 version = "3.4.0"
 description = "Path optimization of einsum functions."
@@ -1203,6 +1218,26 @@ files = [
     {file = "opt_einsum-3.4.0-py3-none-any.whl", hash = "sha256:69bb92469f86a1565195ece4ac0323943e83477171b91d24c35afe028a90d7cd"},
     {file = "opt_einsum-3.4.0.tar.gz", hash = "sha256:96ca72f1b886d148241348783498194c577fa30a8faac108586b14f1ba4473ac"},
 ]
+
+[[package]]
+name = "optype"
+version = "0.19.0"
+description = "Building Blocks for Precise & Flexible Type Hints"
+optional = false
+python-versions = ">=3.12"
+groups = ["dev"]
+files = [
+    {file = "optype-0.19.0-py3-none-any.whl", hash = "sha256:31bff7d2e51e88916a11affed80dbe306ca9e74c76b93b143f1355bb127a7a8c"},
+    {file = "optype-0.19.0.tar.gz", hash = "sha256:50ce4c0ca419026eeae4130dc90c6a0b9a0b54ffe1d940fc26e8d0058903de4c"},
+]
+
+[package.dependencies]
+numpy = {version = ">=2.0,<2.8", optional = true, markers = "extra == \"numpy\""}
+numpy-typing-compat = {version = ">=20260602.2.0,<20260603", optional = true, markers = "extra == \"numpy\""}
+typing-extensions = {version = ">=4.10", markers = "python_full_version < \"3.13.0\""}
+
+[package.extras]
+numpy = ["numpy (>=2.0,<2.8)", "numpy-typing-compat (>=20260602.2.0,<20260603)"]
 
 [[package]]
 name = "packaging"
@@ -2124,6 +2159,24 @@ doc = ["intersphinx_registry", "jupyterlite-pyodide-kernel", "jupyterlite-sphinx
 test = ["Cython", "array-api-strict (>=2.3.1)", "asv", "gmpy2", "hypothesis (>=6.30)", "meson", "mpmath", "ninja ; sys_platform != \"emscripten\"", "pooch", "pytest (>=8.0.0)", "pytest-cov", "pytest-timeout", "pytest-xdist", "scikit-umfpack", "scipy-doctest (>=2.0.0)", "threadpoolctl"]
 
 [[package]]
+name = "scipy-stubs"
+version = "1.18.1.1"
+description = "The official type stubs for SciPy"
+optional = false
+python-versions = ">=3.12"
+groups = ["dev"]
+files = [
+    {file = "scipy_stubs-1.18.1.1-py3-none-any.whl", hash = "sha256:1a48be1702cad1ae9aa850c62ed157c988d990305880511d0e38994d502664f4"},
+    {file = "scipy_stubs-1.18.1.1.tar.gz", hash = "sha256:87995ba945f04a3c3fb9cdb5c06d093cf3637ca1271ae6799eb8030b63fb2263"},
+]
+
+[package.dependencies]
+optype = {version = ">=0.15.0,<0.20", extras = ["numpy"]}
+
+[package.extras]
+scipy = ["scipy (>=1.18.1,<1.19)"]
+
+[[package]]
 name = "six"
 version = "1.17.0"
 description = "Python 2 and 3 compatibility utilities"
@@ -2272,4 +2325,4 @@ accelerate = ["jax", "numba"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.15"
-content-hash = "3cfbb65c8ed862385eb8ecb6d9bb256028b62cb2a90854a97f81f579b9bb52be"
+content-hash = "5ad08d87f609f7a646a8c4263ba817cc38f15d0177f5963b4bff94cf06a58a13"

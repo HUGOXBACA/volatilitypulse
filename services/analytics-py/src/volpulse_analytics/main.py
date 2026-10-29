@@ -22,7 +22,7 @@ from volpulse_core.clients.kafka import KafkaConfig, KafkaConsumer
 from volpulse_core.config import Settings, load_settings
 from volpulse_core.observability.metrics import VolPulseMetrics
 
-from volpulse_analytics.consumer import AnalyticsConsumer, ProtobufQuoteDecoder
+from volpulse_analytics.consumer import AnalyticsConsumer, DecodedQuote, ProtobufQuoteDecoder
 from volpulse_analytics.persistence.timescale import TimescaleConnection, TimescaleWriter
 
 __all__ = ["main"]
@@ -136,7 +136,23 @@ def _consume_forever(
             quotes = kafka_consumer.poll(timeout=1.0)
             if quotes:
                 for quote in quotes:
-                    consumer.process_quote(quote)
+                    decoded = DecodedQuote(
+                        contract_id=quote.contract_id,
+                        underlying_symbol=quote.underlying_symbol,
+                        expiry_epoch_day=quote.expiry_epoch_day,
+                        strike=quote.strike,
+                        right=quote.right.value,
+                        bid=quote.bid,
+                        ask=quote.ask,
+                        last=quote.last,
+                        close=quote.close,
+                        implied_volatility=quote.implied_volatility,
+                        event_time_ns=quote.event_time_ns,
+                        ingest_time_ns=quote.ingest_time_ns,
+                        sequence=quote.sequence,
+                        source=quote.source.value,
+                    )
+                    consumer.process_quote(decoded)
                 kafka_consumer.commit()
     finally:
         kafka_consumer.close()

@@ -56,7 +56,10 @@ requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-packages = [{ include = "volpulse_core", from = "src" }]
+packages = [
+    { include = "volpulse_core", from = "src" },
+    { include = "volpulse_core/py.typed", from = "src" },
+]
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8.3"
