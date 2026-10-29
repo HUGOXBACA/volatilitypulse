@@ -70,6 +70,54 @@ timescale_ddl: tuple[str, ...] = (
     )
     """,
     "SELECT create_hypertable('portfolio_risk', 'as_of', if_not_exists => TRUE)",
+    # Retention policy
+    """
+    SELECT add_retention_policy(
+        'option_quotes',
+        INTERVAL '30 days',
+        if_not_exists => TRUE
+    );
+    SELECT add_retention_policy(
+        'volatility_surfaces',
+        INTERVAL '30 days',
+        if_not_exists => TRUE
+    );
+    SELECT add_retention_policy(
+        'portfolio_risk',
+        INTERVAL '30 days',
+        if_not_exists => TRUE
+    );
+    """,
+    # Continuous aggregate for 1-minute OHLC
+    """
+    CREATE MATERIALIZED VIEW IF NOT EXISTS option_quotes_1m
+    WITH (timescaledb.continuous) AS
+    SELECT
+        time_bucket('1 minute', event_time) AS bucket,
+        underlying_symbol,
+        strike,
+        right,
+        FIRST(bid, event_time) AS open_bid,
+        MAX(bid) AS high_bid,
+        MIN(bid) AS low_bid,
+        LAST(bid, event_time) AS close_bid,
+        FIRST(ask, event_time) AS open_ask,
+        MAX(ask) AS high_ask,
+        MIN(ask) AS low_ask,
+        LAST(ask, event_time) AS close_ask,
+        COUNT(*) AS tick_count
+    FROM option_quotes
+    GROUP BY bucket, underlying_symbol, strike, right
+    WITH NO DATA;
+    """,
+    """
+    SELECT add_continuous_aggregate_policy('option_quotes_1m',
+        start_offset => INTERVAL '3 minutes',
+        end_offset => INTERVAL '1 minute',
+        schedule_interval => INTERVAL '1 minute',
+        if_not_exists => TRUE
+    );
+    """,
 )
 
 

@@ -29,7 +29,7 @@ except ImportError:
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             return func
         return decorator
-    jit = _jit_fallback  # type: ignore[assignment]
+    jit = _jit_fallback
     NUMBA_AVAILABLE = False
 
 from volpulse_core.models.chain import OptionChainSnapshot
@@ -251,7 +251,7 @@ class SVIFitter:
         }
 
     @staticmethod
-    @jit(nopython=True, cache=True)
+    @jit(nopython=True, cache=True)  # type: ignore[untyped-decorator]
     def _svi_variance_jit(k: np.ndarray, a: float, b: float, rho: float, m: float, sigma: float) -> np.ndarray:
         """Compute SVI total variance (JIT-compiled)."""
         return a + b * (rho * (k - m) + np.sqrt((k - m) ** 2 + sigma ** 2))
@@ -261,7 +261,7 @@ class SVIFitter:
         return self._svi_variance_jit(k, params["a"], params["b"], params["rho"], params["m"], params["sigma"])
 
     @staticmethod
-    @jit(nopython=True, cache=True)
+    @jit(nopython=True, cache=True)  # type: ignore[untyped-decorator]
     def _svi_gradient_jit(params: np.ndarray, k: np.ndarray, w_target: np.ndarray) -> np.ndarray:
         """Compute gradient of SVI loss (JIT-compiled)."""
         a, b, rho, m, sigma = params
@@ -287,7 +287,7 @@ class SVIFitter:
         return self._svi_gradient_jit(params, k, w_target)
 
     @staticmethod
-    @jit(nopython=True, cache=True)
+    @jit(nopython=True, cache=True)  # type: ignore[untyped-decorator]
     def _enforce_svi_constraints_jit(params: np.ndarray) -> np.ndarray:
         """Enforce SVI no-arbitrage constraints (JIT-compiled)."""
         a, b, rho, m, sigma = params
@@ -469,7 +469,7 @@ class SABRFitter:
         }
 
     @staticmethod
-    @jit(nopython=True, cache=True)
+    @jit(nopython=True, cache=True)  # type: ignore[untyped-decorator]
     def _sabr_volatility_jit(
         k: np.ndarray,
         f: float,
@@ -519,7 +519,7 @@ class SABRFitter:
         )
 
     @staticmethod
-    @jit(nopython=True, cache=True)
+    @jit(nopython=True, cache=True)  # type: ignore[untyped-decorator]
     def _enforce_sabr_constraints_jit(params: np.ndarray) -> np.ndarray:
         alpha, beta, rho, nu = params
         alpha = max(alpha, 1e-4)

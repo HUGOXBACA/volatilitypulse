@@ -2359,6 +2359,22 @@ django = ["django"]
 twisted = ["twisted"]
 
 [[package]]
+name = "prometheus-fastapi-instrumentator"
+version = "8.1.0"
+description = "Instrument your FastAPI app with Prometheus metrics"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "prometheus_fastapi_instrumentator-8.1.0-py3-none-any.whl", hash = "sha256:b9f40b2cff3f7891ca0610b3ae4fc6ec723fd326b04bb659819aaeb821a0fc7d"},
+    {file = "prometheus_fastapi_instrumentator-8.1.0.tar.gz", hash = "sha256:b77f3043665e8d28e2bbd21017506195a43d9adf1d402d01bf95b494b7e560e1"},
+]
+
+[package.dependencies]
+prometheus-client = ">=0.8.0,<1.0.0"
+starlette = ">=1.0.0,<2.0.0"
+
+[[package]]
 name = "propcache"
 version = "0.5.4"
 description = "Accelerated property cache"
@@ -3287,6 +3303,37 @@ files = [
 ]
 
 [[package]]
+name = "starlette"
+version = "1.10.0"
+description = "The little ASGI library that shines."
+optional = false
+python-versions = ">=3.11"
+groups = ["main"]
+files = [
+    {file = "starlette-1.10.0-py3-none-any.whl", hash = "sha256:478c0ab3b4ced6e82719849c118fa406f0278a3499c1a898cd15cd31bdc38ce4"},
+    {file = "starlette-1.10.0.tar.gz", hash = "sha256:b8399098d4c1e3522734f7235dc79b1fc967f96cf139c81e0fa30479e0685f9b"},
+]
+
+[package.dependencies]
+anyio = ">=4.0.0,<5"
+typing-extensions = {version = ">=4.10.0", markers = "python_version < \"3.13\""}
+
+[package.extras]
+full = ["httpx (>=0.27.0,<0.29.0)", "httpx2 (>=2.0.0)", "itsdangerous", "jinja2", "opentelemetry-api", "python-multipart (>=0.0.18)", "pyyaml"]
+
+[[package]]
+name = "structlog"
+version = "26.1.0"
+description = "Structured Logging for Python"
+optional = false
+python-versions = ">=3.10"
+groups = ["main", "dev"]
+files = [
+    {file = "structlog-26.1.0-py3-none-any.whl", hash = "sha256:e081a26d6c373e6d201eca24eede26d8ffab07f88f477822e679183428d3d91e"},
+    {file = "structlog-26.1.0.tar.gz", hash = "sha256:f63a716cbd1b1291cf7661de7794b455acfa4c43c5bcf1630e6ad5ddc1adb3b7"},
+]
+
+[[package]]
 name = "typeguard"
 version = "4.6.0"
 description = "Run-time type checker for Python"
@@ -3300,6 +3347,30 @@ files = [
 
 [package.dependencies]
 typing_extensions = ">=4.14.0"
+
+[[package]]
+name = "types-aiofiles"
+version = "25.1.0.20260518"
+description = "Typing stubs for aiofiles"
+optional = false
+python-versions = ">=3.10"
+groups = ["dev"]
+files = [
+    {file = "types_aiofiles-25.1.0.20260518-py3-none-any.whl", hash = "sha256:f776bdfb4bec17f743d9ef042e61edf03bdcc7821fc08556fba9b63d873fdea9"},
+    {file = "types_aiofiles-25.1.0.20260518.tar.gz", hash = "sha256:c0c95eb78755d4fa7b397d4f0332c632714dd7cd0d17f49b96e31d4d7a8d8c76"},
+]
+
+[[package]]
+name = "types-grpcio"
+version = "1.84.0.20261021"
+description = "Typing stubs for grpcio"
+optional = false
+python-versions = ">=3.10"
+groups = ["dev"]
+files = [
+    {file = "types_grpcio-1.84.0.20261021-py3-none-any.whl", hash = "sha256:0cd5f897d7485c448c4819597cb05fd17afac4620c0feaee6f7c5d0ee96a60f1"},
+    {file = "types_grpcio-1.84.0.20261021.tar.gz", hash = "sha256:d06d24b31843adaf34656654a7536bd70b40425880bb6162219eb5b1a86220ae"},
+]
 
 [[package]]
 name = "types-pyyaml"
@@ -3423,12 +3494,15 @@ numpy = ">=2.2,<2.6"
 pandas = ">=2.2"
 pandera = {version = ">=0.24", extras = ["pandas"]}
 polars = ">=1.9"
+prometheus-client = ">=0.26.0,<0.27.0"
+prometheus-fastapi-instrumentator = ">=8.1.0,<9.0.0"
 pyarrow = ">=17.0"
 pydantic-settings = ">=2.0"
 python-dotenv = ">=1.0"
 pyyaml = ">=6.0"
 requests = ">=2.32"
 scipy = ">=1.14"
+structlog = ">=26.1.0,<27.0.0"
 websockets = ">=12.0"
 
 [package.extras]
@@ -3761,4 +3835,4 @@ accelerate = ["jax", "numba"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.15"
-content-hash = "84706bf9a16d76e17145ff9499ab203e0ac36ee4f53e198e6a8a8261dc2a5446"
+content-hash = "92e0ce270a9df7974b4e97f4efcf95606d72c70e75379e443e2a019b08dc4cc6"

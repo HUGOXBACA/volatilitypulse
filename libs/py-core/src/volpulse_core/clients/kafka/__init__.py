@@ -138,15 +138,22 @@ class KafkaProducer:
         if not quotes:
             return 0
 
+        from google.protobuf import timestamp_pb2
+
         from volpulse.options.v1 import quote_pb2, streaming_pb2
 
         chain = quote_pb2.OptionChainSnapshot(
             underlying_symbol=quotes[0].underlying_symbol,
-            expiry_epoch_day=quotes[0].expiry_epoch_day,
             sequence=quotes[0].sequence,
-            reported_quote_count=len(quotes),
         )
         for q in quotes:
+            # Convert nanoseconds to protobuf Timestamp
+            event_ts = timestamp_pb2.Timestamp()
+            event_ts.FromNanoseconds(q.event_time_ns)
+
+            ingest_ts = timestamp_pb2.Timestamp()
+            ingest_ts.FromNanoseconds(q.ingest_time_ns)
+
             chain.quotes.add(
                 contract_id=q.contract_id,
                 underlying_symbol=q.underlying_symbol,
@@ -157,8 +164,8 @@ class KafkaProducer:
                 last=q.last,
                 close=q.close,
                 implied_volatility=q.implied_volatility,
-                event_time_ns=q.event_time_ns,
-                ingest_time_ns=q.ingest_time_ns,
+                event_time=event_ts,
+                ingest_time=ingest_ts,
                 sequence=int(q.sequence),
                 source=_source_to_proto(q.source),
             )
@@ -253,18 +260,26 @@ class KafkaConsumer:
 
         from volpulse.options.v1 import quote_pb2, streaming_pb2  # noqa: F401
 
+        payload = msg.value()
+        if payload is None:
+            return []
+
         envelope = streaming_pb2.ChainRecord()
-        envelope.ParseFromString(msg.value())
+        envelope.ParseFromString(payload)
 
         quotes: list[OptionQuote] = []
         if envelope.WhichOneof("payload") == "chain":
             chain = envelope.chain
             for q in chain.quotes:
+                # Convert protobuf Timestamp to nanoseconds
+                event_time_ns = q.event_time.ToNanoseconds() if q.HasField("event_time") else 0
+                ingest_time_ns = q.ingest_time.ToNanoseconds() if q.HasField("ingest_time") else 0
+                
                 quotes.append(
                     OptionQuote(
                         contract_id=q.contract_id,
                         underlying_symbol=q.underlying_symbol,
-                        expiry_epoch_day=q.expiry_epoch_day,
+                        expiry_epoch_day=0,  # Not available in OptionQuote proto
                         strike=q.strike,
                         right=_right_from_proto(q.right),
                         bid=q.bid,
@@ -272,8 +287,8 @@ class KafkaConsumer:
                         last=q.last,
                         close=q.close,
                         implied_volatility=q.implied_volatility,
-                        event_time_ns=q.event_time_ns,
-                        ingest_time_ns=q.ingest_time_ns,
+                        event_time_ns=event_time_ns,
+                        ingest_time_ns=ingest_time_ns,
                         sequence=int(q.sequence),
                         source=_source_from_proto(q.source),
                     )

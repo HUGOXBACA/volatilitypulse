@@ -17,12 +17,13 @@ from dataclasses import dataclass
 from typing import Protocol
 
 import numpy as np
+from volpulse_core.models.quote import OptionQuote
 from volpulse_core.observability.metrics import VolPulseMetrics
 
 from volpulse_analytics.persistence.timescale import TimescaleWriter
 from volpulse_analytics.surfaces.svi import SviFit, fit_svi
 
-__all__ = ["AnalyticsConsumer", "DecodedQuote", "QuoteDecoder"]
+__all__ = ["AnalyticsConsumer", "DecodedQuote", "QuoteDecoder", "QuoteLike"]
 
 #: A slice with fewer usable points than this is not fitted: the result would
 #: be dominated by noise rather than by the market.
@@ -54,6 +55,10 @@ class DecodedQuote:
         if self.bid > 0.0 and self.ask > 0.0:
             return 0.5 * (self.bid + self.ask)
         return self.last
+
+
+# Type alias for quote-like objects that the consumer processes
+QuoteLike = DecodedQuote | OptionQuote
 
 
 class QuoteDecoder(Protocol):
@@ -207,7 +212,7 @@ class AnalyticsConsumer:
         self._fit_surfaces(underlying, quotes)
         return len(quotes)
 
-    def process_quote(self, quote: DecodedQuote) -> int:
+    def process_quote(self, quote: QuoteLike) -> int:
         """Process a single decoded quote.
 
         Args:
@@ -226,9 +231,9 @@ class AnalyticsConsumer:
         self._fit_surfaces(underlying, [quote])
         return 1
 
-    def _fit_surfaces(self, underlying: str, quotes: Sequence[DecodedQuote]) -> None:
+    def _fit_surfaces(self, underlying: str, quotes: Sequence[QuoteLike]) -> None:
         """Fit one volatility surface per expiry and record the result."""
-        by_expiry: dict[int, list[DecodedQuote]] = {}
+        by_expiry: dict[int, list[QuoteLike]] = {}
         for quote in quotes:
             by_expiry.setdefault(quote.expiry_epoch_day, []).append(quote)
 

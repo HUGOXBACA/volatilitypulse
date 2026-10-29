@@ -2,6 +2,9 @@
 .env
 .env.*
 .env.example
+AGENTS.md
+IDEA.md
+.env.example
 *.pem
 *.key
 !infra/**/*.example
