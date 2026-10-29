@@ -11,7 +11,7 @@ authors = [
 dependencies = [
     "volpulse-core",
     "confluent-kafka>=2.6",
-    "grpcio>=1.68",
+    "grpcio>=1.85.0",
     "numpy>=2.2,<2.6",
     "polars>=1.9",
     "prometheus-client>=0.21",
