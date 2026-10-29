@@ -48,7 +48,7 @@ volpulse-core = { path = "../../libs/py-core", develop = true }
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8.3"
 pytest-asyncio = ">=0.24"
-hypothesis = ">=6.112"
+hypothesis = ">=6.170.11"
 ruff = ">=0.7"
 mypy = ">=1.13"
 scipy-stubs = "^1.18.1.1"
