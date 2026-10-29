@@ -14,7 +14,7 @@ dependencies = [
     "requests>=2.32",
     # ── Data frames & validation ───────────────────────────────────────────
     "polars>=1.9",
-    "pandas>=2.2",
+    "pandas>=3.1.0",
     "numpy>=2.2,<2.6",
     "pyarrow>=17.0",
     "pandera[pandas]>=0.24",
