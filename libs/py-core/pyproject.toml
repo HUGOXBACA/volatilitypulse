@@ -41,7 +41,7 @@ dependencies = [
 # The hardware acceleration path described in ADR 0004.
 accelerate = [
     "numba>=0.63",
-    "jax>=0.12",
+    "jax>=0.12.0.1",
 ]
 
 [project.scripts]
