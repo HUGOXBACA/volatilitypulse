@@ -654,19 +654,19 @@ files = [
 
 [[package]]
 name = "jax"
-version = "0.12.0"
+version = "0.12.0.1"
 description = "Differentiate, compile, and transform Numpy code."
 optional = true
 python-versions = ">=3.12"
 groups = ["main"]
 markers = "extra == \"accelerate\""
 files = [
-    {file = "jax-0.12.0-py3-none-any.whl", hash = "sha256:758dd93b8c0682572fc9211da0e9441f73a9522ab315a4c9dbdd14673416f809"},
-    {file = "jax-0.12.0.tar.gz", hash = "sha256:320f52f19953fc08d224e9993632ac16b5ba2e5cfce926a30a253a7bee45e22a"},
+    {file = "jax-0.12.0.1-py3-none-any.whl", hash = "sha256:e9dfd256ba090259b10f97f0755d4fc92535b8cb38c0a40df6488a8c8a7dd8ae"},
+    {file = "jax-0.12.0.1.tar.gz", hash = "sha256:f543fb1151c351d328b7dd9e40865c01bf9ae10cdf7e21637196172891d51914"},
 ]
 
 [package.dependencies]
-jaxlib = ">=0.11.2,<=0.12.0"
+jaxlib = ">=0.11.2,<=0.12.0.1"
 ml_dtypes = ">=0.5.0"
 numpy = ">=2.2"
 opt_einsum = "*"
@@ -674,16 +674,16 @@ scipy = ">=1.15"
 
 [package.extras]
 ci = ["jaxlib (==0.11.2)"]
-cuda = ["jax-cuda12-plugin[with-cuda] (==0.12.0)", "jaxlib (==0.12.0)"]
-cuda12 = ["jax-cuda12-plugin[with-cuda] (==0.12.0)", "jaxlib (==0.12.0)"]
-cuda12-local = ["jax-cuda12-plugin (==0.12.0)", "jaxlib (==0.12.0)"]
-cuda13 = ["jax-cuda13-plugin[with-cuda] (==0.12.0)", "jaxlib (==0.12.0)"]
-cuda13-local = ["jax-cuda13-plugin (==0.12.0)", "jaxlib (==0.12.0)"]
+cuda = ["jax-cuda12-plugin[with-cuda] (==0.12.0.1)", "jaxlib (==0.12.0.1)"]
+cuda12 = ["jax-cuda12-plugin[with-cuda] (==0.12.0.1)", "jaxlib (==0.12.0.1)"]
+cuda12-local = ["jax-cuda12-plugin (==0.12.0.1)", "jaxlib (==0.12.0.1)"]
+cuda13 = ["jax-cuda13-plugin[with-cuda] (==0.12.0.1)", "jaxlib (==0.12.0.1)"]
+cuda13-local = ["jax-cuda13-plugin (==0.12.0.1)", "jaxlib (==0.12.0.1)"]
 k8s = ["kubernetes"]
 minimum-jaxlib = ["jaxlib (==0.11.2)"]
-oneapi = ["jax-oneapi-plugin[with-oneapi] (==0.12.0)", "jaxlib (==0.12.0)"]
-rocm7-local = ["jax-rocm7-plugin (==0.12.0.*)", "jaxlib (==0.12.0)"]
-tpu = ["jaxlib (==0.12.0)", "libtpu (==0.0.50.*)", "requests"]
+oneapi = ["jax-oneapi-plugin[with-oneapi] (==0.12.0.1)", "jaxlib (==0.12.0.1)"]
+rocm7-local = ["jax-rocm7-plugin (==0.12.0.1.*)", "jaxlib (==0.12.0.1)"]
+tpu = ["jaxlib (==0.12.0.1)", "libtpu (==0.0.50.*)", "requests"]
 xprof = ["xprof"]
 
 [[package]]
@@ -2325,4 +2325,4 @@ accelerate = ["jax", "numba"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.15"
-content-hash = "5ad08d87f609f7a646a8c4263ba817cc38f15d0177f5963b4bff94cf06a58a13"
+content-hash = "175039b1361926a680bb5f93bd951831eda66bbd50f699b056c25ccc9b445c66"
