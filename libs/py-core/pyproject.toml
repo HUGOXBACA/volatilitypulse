@@ -40,7 +40,7 @@ dependencies = [
 [project.optional-dependencies]
 # The hardware acceleration path described in ADR 0004.
 accelerate = [
-    "numba>=0.63",
+    "numba>=0.68.1",
     "jax>=0.12",
 ]
 
